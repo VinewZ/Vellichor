@@ -1,0 +1,83 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #ffffff;
+  --secondary-background: #f5f3f4;
+  --foreground: #0a0a0a;
+  --main-foreground: #ffffff;
+  --main: #9d0208;
+  --border: #0a0a0a;
+  --ring: #9d0208;
+  --overlay: oklch(0% 0 0 / 0.8);
+  --shadow: 2px 2px 0px 0px var(--border);
+  --chart-1: #9d0208;
+  --chart-2: #ba181b;
+  --chart-3: #6a040f;
+  --chart-4: #e5383b;
+  --chart-5: #5c5c5c;
+  --chart-active-dot: #0a0a0a;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --secondary-background: #161616;
+  --foreground: #edede9;
+  --main-foreground: #ffffff;
+  --main: #c1121f;
+  --border: #edede9;
+  --ring: #e5383b;
+  --shadow: 2px 2px 0px 0px var(--border);
+  --chart-1: #e5383b;
+  --chart-2: #ba181b;
+  --chart-3: #ff4d6d;
+  --chart-4: #9d0208;
+  --chart-5: #8d99ae;
+  --chart-active-dot: #ffffff;
+}
+
+@theme inline {
+  --color-main: var(--main);
+  --color-background: var(--background);
+  --color-secondary-background: var(--secondary-background);
+  --color-foreground: var(--foreground);
+  --color-main-foreground: var(--main-foreground);
+  --color-border: var(--border);
+  --color-overlay: var(--overlay);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --spacing-boxShadowX: 2px;
+  --spacing-boxShadowY: 2px;
+  --spacing-reverseBoxShadowX: -2px;
+  --spacing-reverseBoxShadowY: -2px;
+  --radius-base: 5px;
+  --shadow-shadow: var(--shadow);
+  --shadow-section: 5px 5px 0px 0px var(--border);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-weight-base: 500;
+  --font-weight-heading: 700;
+}
+  
+@layer base {
+  body {
+    @apply text-foreground font-base font-sans bg-background;
+  }
+
+  h1, h2, h3, h4, h5, h6{
+    @apply font-heading font-display;
+  }
+
+  label {
+    @apply font-display;
+  }
+}
