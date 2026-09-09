@@ -2,13 +2,14 @@ import { useCallback, useRef, useState } from "react";
 import type { ResponseFormat } from "@/hooks/useSynthesis";
 import { buildSpeechRequest } from "@/hooks/useSynthesis";
 
-const PREVIEW_TEXT = "Hello, this is a preview of this voice.";
+export const DEFAULT_PREVIEW_TEXT = "Hello, this is a preview of this voice.";
 
 interface PreviewState {
 	model: string;
 	speed: number;
 	volume: number;
 	format: ResponseFormat;
+	previewText: string;
 }
 
 export function useVoicePreview(state: PreviewState) {
@@ -34,7 +35,9 @@ export function useVoicePreview(state: PreviewState) {
 								volume: state.volume,
 								format: state.format,
 							},
-							PREVIEW_TEXT,
+							state.previewText.trim() === ""
+								? DEFAULT_PREVIEW_TEXT
+								: state.previewText.trim(),
 						),
 					),
 				});
@@ -55,7 +58,7 @@ export function useVoicePreview(state: PreviewState) {
 				setPreviewingId(null);
 			}
 		},
-		[state.model, state.speed, state.volume, state.format],
+		[state.model, state.speed, state.volume, state.format, state.previewText],
 	);
 
 	return { previewingId, previewError, handlePreview };

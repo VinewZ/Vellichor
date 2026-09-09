@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useSynthesis } from "@/hooks/useSynthesis";
-import { useVoicePreview } from "@/hooks/useVoicePreview";
+import { DEFAULT_PREVIEW_TEXT, useVoicePreview } from "@/hooks/useVoicePreview";
 import { useVoices } from "@/hooks/useVoices";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -19,12 +19,14 @@ export function VoiceSelection() {
 	const voicesQuery = useVoices();
 	const [selectedCountry, setSelectedCountry] = useState("American");
 	const [filter, setFilter] = useState("");
+	const [previewText, setPreviewText] = useState(DEFAULT_PREVIEW_TEXT);
 	const deferredFilter = useDeferredValue(filter);
 	const { previewingId, previewError, handlePreview } = useVoicePreview({
 		model,
 		speed,
 		volume,
 		format,
+		previewText,
 	});
 
 	const query = deferredFilter.trim().toLowerCase();
@@ -91,6 +93,13 @@ export function VoiceSelection() {
 				{previewError ? (
 					<p className="text-xs font-mono text-red-600">{previewError}</p>
 				) : null}
+
+				<Input
+					value={previewText}
+					onChange={(e) => setPreviewText(e.currentTarget.value)}
+					placeholder="Type a sentence to preview voices..."
+					maxLength={300}
+				/>
 
 				{voicesQuery.isPending ? (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
