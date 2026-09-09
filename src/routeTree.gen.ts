@@ -10,18 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiModelsRouteImport } from './routes/api/models'
 import { Route as ApiSpeechRouteImport } from './routes/api/speech'
 import { Route as ApiVoicesRouteImport } from './routes/api/voices'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiModelsRoute = ApiModelsRouteImport.update({
-  id: '/api/models',
-  path: '/api/models',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSpeechRoute = ApiSpeechRouteImport.update({
@@ -37,34 +31,30 @@ const ApiVoicesRoute = ApiVoicesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/api/models': typeof ApiModelsRoute
   '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/api/models': typeof ApiModelsRoute
   '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/api/models': typeof ApiModelsRoute
   '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/models' | '/api/speech' | '/api/voices'
+  fullPaths: '/' | '/api/speech' | '/api/voices'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/models' | '/api/speech' | '/api/voices'
-  id: '__root__' | '/' | '/api/models' | '/api/speech' | '/api/voices'
+  to: '/' | '/api/speech' | '/api/voices'
+  id: '__root__' | '/' | '/api/speech' | '/api/voices'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ApiModelsRoute: typeof ApiModelsRoute
   ApiSpeechRoute: typeof ApiSpeechRoute
   ApiVoicesRoute: typeof ApiVoicesRoute
 }
@@ -76,13 +66,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/models': {
-      id: '/api/models'
-      path: '/api/models'
-      fullPath: '/api/models'
-      preLoaderRoute: typeof ApiModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/speech': {
@@ -104,7 +87,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApiModelsRoute: ApiModelsRoute,
   ApiSpeechRoute: ApiSpeechRoute,
   ApiVoicesRoute: ApiVoicesRoute,
 }

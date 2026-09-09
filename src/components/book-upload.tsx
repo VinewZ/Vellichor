@@ -1,56 +1,20 @@
 import { Book, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { type ParsedBook, revokeCoverUrl } from "@/lib/book";
-import { Button } from "./ui/button";
+import { useRef } from "react";
+import { useBook } from "@/hooks/useBook";
 import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
 
-interface BookUploadProps {
-	onParsed?: (book: ParsedBook) => void;
-}
-
-export function BookUpload({ onParsed }: BookUploadProps) {
+export function BookUpload() {
 	const inputRef = useRef<HTMLInputElement>(null);
-	const [book, setBook] = useState<ParsedBook | null>(null);
-	const [isParsing, setIsParsing] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { book, isParsing, error, parseFile } = useBook();
 
 	const isUploaded = book !== null;
 	const isEpub = book?.fileFormat === "epub";
 	const coverUrl = book?.coverUrl;
 
-	useEffect(() => {
-		return () => {
-			revokeCoverUrl(coverUrl);
-		};
-	}, [coverUrl]);
-
-	async function handleFile(file: File | undefined) {
-		if (!file || isParsing) return;
-		const ext = file.name.split(".").pop()?.toLowerCase();
-		const isPdf = ext === "pdf" || file.type === "application/pdf";
-		const isEpubFile = ext === "epub" || file.type === "application/epub+zip";
-		if (!isPdf && !isEpubFile) {
-			setError("Only .pdf and .epub files are supported.");
-			return;
-		}
-		if (file.size > 100 * 1024 * 1024) {
-			setError("File is too large. Max 100 MB.");
-			return;
-		}
-		setError(null);
-		setIsParsing(true);
-		try {
-			const parsed = isPdf
-				? await import("@/lib/parse-pdf").then((m) => m.parsePdf(file))
-				: await import("@/lib/parse-epub").then((m) => m.parseEpub(file));
-			setBook(parsed);
-			onParsed?.(parsed);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Could not parse file.");
-		} finally {
-			setIsParsing(false);
-			if (inputRef.current) inputRef.current.value = "";
-		}
+	function handleFile(file: File | undefined) {
+		parseFile(file);
+		if (inputRef.current) inputRef.current.value = "";
 	}
 
 	return (
@@ -86,11 +50,21 @@ export function BookUpload({ onParsed }: BookUploadProps) {
 				<div className="md:col-span-8 flex flex-col justify-between gap-4">
 					<div>
 						<div className="flex flex-wrap items-center gap-2 mb-2">
-							<span className={cn("px-2 py-0.5 bg-tertiary text-on-tertiary text-[10px] font-headline font-bold uppercase border border-outline", book?.fileFormat && "bg-emerald-800")}>
+							<span
+								className={cn(
+									"px-2 py-0.5 bg-tertiary text-on-tertiary text-[10px] font-headline font-bold uppercase border border-outline",
+									book?.fileFormat && "bg-emerald-800",
+								)}
+							>
 								{book ? `${book.fileFormat} Detected` : "Awaiting file"}
 							</span>
 							{book && book.toc.length > 0 ? (
-								<span className={cn("px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] font-headline font-bold uppercase border border-outline", book.toc && "bg-emerald-800")}>
+								<span
+									className={cn(
+										"px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] font-headline font-bold uppercase border border-outline",
+										book.toc && "bg-emerald-800",
+									)}
+								>
 									TOC Extracted · {book.toc.length}
 								</span>
 							) : null}
