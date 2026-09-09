@@ -1,5 +1,5 @@
-import { buildSpeechRequest, type ResponseFormat } from "@/hooks/useSynthesis";
 import type { BookChapter } from "@/lib/book";
+import { buildSpeechRequest, type SynthesisSnapshot } from "@/lib/synthesis";
 
 export type ChapterJobStatus =
 	| "idle"
@@ -11,18 +11,10 @@ export type ChapterJobStatus =
 export interface ChapterJob {
 	chapterIndex: number;
 	status: ChapterJobStatus;
-	chunks: string[];
+	totalChunks: number;
 	doneChunks: number;
 	audioUrl?: string;
 	error?: string;
-}
-
-export interface SynthesisSnapshot {
-	model: string;
-	voice: string;
-	speed: number;
-	volume: number;
-	format: ResponseFormat;
 }
 
 export const CHUNK_TARGET = 3800;
@@ -79,21 +71,58 @@ export function segmentSentences(text: string, locale: string): string[] {
 	return merged;
 }
 
+interface BlockSentence {
+	text: string;
+	sep: "" | " " | "\n" | "\n\n";
+}
+
+function blockSentences(text: string, locale: string): BlockSentence[] {
+	const parts = text.split(/(\n+)/);
+	const out: BlockSentence[] = [];
+	let pendingSep: "" | " " | "\n" | "\n\n" = "";
+	for (let i = 0; i < parts.length; i++) {
+		const part = parts[i] ?? "";
+		if (i % 2 === 1) {
+			pendingSep = pendingSep === "" && part.length === 1 ? "\n" : "\n\n";
+			continue;
+		}
+		const line = part.replace(/\s+/g, " ").trim();
+		if (!line) {
+			if (pendingSep === "\n") pendingSep = "\n\n";
+			continue;
+		}
+		const sep = out.length === 0 ? "" : pendingSep || " ";
+		segmentSentences(line, locale).forEach((sentence, sIndex) => {
+			out.push({ text: sentence, sep: sIndex === 0 ? sep : " " });
+		});
+		pendingSep = "";
+	}
+	return out;
+}
+
 export function chunkText(
 	text: string,
 	locale = "en",
 	maxChars = CHUNK_TARGET,
 ): string[] {
-	const sentences = segmentSentences(text, locale);
+	const sentences = blockSentences(text, locale);
 	const chunks: string[] = [];
 	let current = "";
 	for (const sentence of sentences) {
-		if (current && current.length + sentence.length + 1 > maxChars) {
+		const glue = !current ? "" : sentence.sep || " ";
+		if (
+			current &&
+			current.length + glue.length + sentence.text.length > maxChars
+		) {
 			chunks.push(current);
 			current = "";
 		}
-		if (sentence.length > maxChars) {
-			const words = sentence.split(" ");
+		if (sentence.text.length > maxChars) {
+			if (current) {
+				chunks.push(current);
+				current = "";
+			}
+			const words = sentence.text.split(" ");
 			let part = "";
 			for (const word of words) {
 				if (part && part.length + word.length + 1 > maxChars) {
@@ -102,12 +131,9 @@ export function chunkText(
 				}
 				part = part ? `${part} ${word}` : word;
 			}
-			if (part) {
-				if (current) chunks.push(current);
-				current = part;
-			}
+			if (part) current = part;
 		} else {
-			current = current ? `${current} ${sentence}` : sentence;
+			current = current ? `${current}${glue}${sentence.text}` : sentence.text;
 		}
 	}
 	if (current) chunks.push(current);
@@ -135,7 +161,7 @@ export function createChapterJobs(count: number): ChapterJob[] {
 	return Array.from({ length: count }, (_, chapterIndex) => ({
 		chapterIndex,
 		status: "idle" as ChapterJobStatus,
-		chunks: [],
+		totalChunks: 0,
 		doneChunks: 0,
 	}));
 }
