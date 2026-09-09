@@ -76,3 +76,11 @@ export function cleanTitle(fileName: string): string {
 		.replace(/[_-]+/g, " ")
 		.trim();
 }
+
+export function bookFingerprint(
+	book: Pick<ParsedBook, "fileName" | "fileSizeMB">,
+): string {
+	const name = book.fileName.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
+	const size = book.fileSizeMB.replace(/[^A-Za-z0-9._-]+/g, "_");
+	return `${name}--${size}`;
+}

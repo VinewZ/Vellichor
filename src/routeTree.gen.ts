@@ -10,12 +10,30 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiExportRouteImport } from './routes/api/export'
+import { Route as ApiFilesRouteImport } from './routes/api/files'
+import { Route as ApiRenderRouteImport } from './routes/api/render'
 import { Route as ApiSpeechRouteImport } from './routes/api/speech'
 import { Route as ApiVoicesRouteImport } from './routes/api/voices'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExportRoute = ApiExportRouteImport.update({
+  id: '/api/export',
+  path: '/api/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesRoute = ApiFilesRouteImport.update({
+  id: '/api/files',
+  path: '/api/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRenderRoute = ApiRenderRouteImport.update({
+  id: '/api/render',
+  path: '/api/render',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSpeechRoute = ApiSpeechRouteImport.update({
@@ -31,30 +49,61 @@ const ApiVoicesRoute = ApiVoicesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/export': typeof ApiExportRoute
+  '/api/files': typeof ApiFilesRoute
+  '/api/render': typeof ApiRenderRoute
   '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/export': typeof ApiExportRoute
+  '/api/files': typeof ApiFilesRoute
+  '/api/render': typeof ApiRenderRoute
   '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/export': typeof ApiExportRoute
+  '/api/files': typeof ApiFilesRoute
+  '/api/render': typeof ApiRenderRoute
   '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/speech' | '/api/voices'
+  fullPaths:
+    | '/'
+    | '/api/export'
+    | '/api/files'
+    | '/api/render'
+    | '/api/speech'
+    | '/api/voices'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/speech' | '/api/voices'
-  id: '__root__' | '/' | '/api/speech' | '/api/voices'
+  to:
+    | '/'
+    | '/api/export'
+    | '/api/files'
+    | '/api/render'
+    | '/api/speech'
+    | '/api/voices'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/export'
+    | '/api/files'
+    | '/api/render'
+    | '/api/speech'
+    | '/api/voices'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiExportRoute: typeof ApiExportRoute
+  ApiFilesRoute: typeof ApiFilesRoute
+  ApiRenderRoute: typeof ApiRenderRoute
   ApiSpeechRoute: typeof ApiSpeechRoute
   ApiVoicesRoute: typeof ApiVoicesRoute
 }
@@ -66,6 +115,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/export': {
+      id: '/api/export'
+      path: '/api/export'
+      fullPath: '/api/export'
+      preLoaderRoute: typeof ApiExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files': {
+      id: '/api/files'
+      path: '/api/files'
+      fullPath: '/api/files'
+      preLoaderRoute: typeof ApiFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/render': {
+      id: '/api/render'
+      path: '/api/render'
+      fullPath: '/api/render'
+      preLoaderRoute: typeof ApiRenderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/speech': {
@@ -87,6 +157,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiExportRoute: ApiExportRoute,
+  ApiFilesRoute: ApiFilesRoute,
+  ApiRenderRoute: ApiRenderRoute,
   ApiSpeechRoute: ApiSpeechRoute,
   ApiVoicesRoute: ApiVoicesRoute,
 }

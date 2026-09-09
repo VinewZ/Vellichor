@@ -1,4 +1,11 @@
-import { LoaderCircle, Pause, Play, RotateCcw, Square } from "lucide-react";
+import {
+	LoaderCircle,
+	Pause,
+	Play,
+	RotateCcw,
+	Square,
+	Trash2,
+} from "lucide-react";
 import { memo } from "react";
 import { useBook } from "@/hooks/useBook";
 import { useChapterAudio } from "@/hooks/useChapterAudio";
@@ -122,10 +129,13 @@ export function Mixer() {
 		playingIndex,
 		error,
 		doneCount,
+		exporting,
 		generate,
 		cancel,
+		clearRender,
 		retry,
 		togglePlay,
+		exportM4b,
 	} = useChapterAudio();
 
 	const selectedIndices = [...selected].sort((a, b) => a - b);
@@ -140,6 +150,8 @@ export function Mixer() {
 				: isGenerating
 					? `Rendering… ${doneCount} of ${runIndices.length} done`
 					: `Ready — ${selectedIndices.length} chapter(s) selected`;
+	const canExport = !!book && doneCount > 0 && !isGenerating && !exporting;
+	const canClear = !!book && !isGenerating && runIndices.length > 0;
 
 	return (
 		<section className="bg-surface-bright border-2 border-outline p-6 shadow-section">
@@ -184,7 +196,7 @@ export function Mixer() {
 							wordCount={book.chapters[index]?.wordCount ?? 0}
 							status={jobs[index]?.status ?? "idle"}
 							doneChunks={jobs[index]?.doneChunks ?? 0}
-							totalChunks={jobs[index]?.chunks.length ?? 0}
+							totalChunks={jobs[index]?.totalChunks ?? 0}
 							statusError={jobs[index]?.error}
 							isPlaying={playingIndex === index}
 							isGenerating={isGenerating}
@@ -194,6 +206,20 @@ export function Mixer() {
 					))}
 				</div>
 			) : null}
+			<div className="flex items-center gap-3">
+				<Button variant="neutral" disabled={!canExport} onClick={exportM4b}>
+					{exporting ? "Exporting…" : "Export .M4B"}
+				</Button>
+				<Button variant="neutral" disabled={!canClear} onClick={clearRender}>
+					<Trash2 />
+					Clear
+				</Button>
+				<span className="text-[11px] font-mono text-on-surface-variant">
+					{doneCount > 0
+						? `${doneCount} chapter(s) with chapter marks`
+						: "Generate chapters first"}
+				</span>
+			</div>
 		</section>
 	);
 }

@@ -7,7 +7,10 @@ import {
 	useState,
 } from "react";
 
-export type ResponseFormat = "mp3" | "opus" | "aac" | "flac" | "wav" | "pcm";
+import { buildSpeechRequest, type ResponseFormat } from "@/lib/synthesis";
+
+export type { ResponseFormat };
+export { buildSpeechRequest };
 
 interface SynthesisContextValue {
 	model: string;
@@ -140,21 +143,4 @@ export function useSynthesis(): SynthesisContextValue {
 	if (!ctx)
 		throw new Error("useSynthesis must be used within a SynthesisProvider");
 	return ctx;
-}
-
-export function buildSpeechRequest(
-	state: Pick<
-		SynthesisContextValue,
-		"model" | "voice" | "speed" | "volume" | "format"
-	>,
-	input: string,
-) {
-	return {
-		model: state.model,
-		input,
-		voice: state.voice,
-		response_format: state.format,
-		speed: state.speed,
-		volume_multiplier: state.volume,
-	};
 }

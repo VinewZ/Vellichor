@@ -9,14 +9,24 @@ import {
 } from "react";
 import { useBook } from "@/hooks/useBook";
 import { useChapterSelection } from "@/hooks/useChapterSelection";
-import { buildSpeechRequest, useSynthesis } from "@/hooks/useSynthesis";
-import {
-	type ChapterJob,
-	chunkText,
-	createChapterJobs,
-	type SynthesisSnapshot,
-	voiceIdToLocale,
-} from "@/lib/chapter-audio";
+import { useSynthesis } from "@/hooks/useSynthesis";
+import { bookFingerprint } from "@/lib/book";
+import { type ChapterJob, createChapterJobs } from "@/lib/chapter-audio";
+
+interface ServerChapterSnapshot {
+	index: number;
+	status: ChapterJob["status"];
+	totalChunks: number;
+	doneChunks: number;
+	error?: string;
+}
+
+interface JobSnapshot {
+	jobId: string;
+	status: string;
+	fingerprint: string;
+	chapters: ServerChapterSnapshot[];
+}
 
 interface ChapterAudioContextValue {
 	jobs: ChapterJob[];
@@ -25,33 +35,21 @@ interface ChapterAudioContextValue {
 	playingIndex: number | null;
 	error: string | null;
 	doneCount: number;
+	exporting: boolean;
 	generate: () => void;
 	cancel: () => void;
+	clearRender: () => void;
 	retry: (index: number) => void;
 	togglePlay: (index: number) => void;
+	exportM4b: () => void;
 }
 
 const ChapterAudioContext = createContext<ChapterAudioContextValue | null>(
 	null,
 );
 
-function setJobStatus(
-	prev: ChapterJob[],
-	index: number,
-	patch: Partial<ChapterJob>,
-): ChapterJob[] {
-	return prev.map((job, i) => (i === index ? { ...job, ...patch } : job));
-}
-
-async function postSpeech(body: unknown, signal: AbortSignal): Promise<Blob> {
-	const res = await fetch("/api/speech", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(body),
-		signal,
-	});
-	if (!res.ok) throw new Error(`Kokoro responded with status ${res.status}`);
-	return res.blob();
+function fileUrl(fingerprint: string, index: number): string {
+	return `/api/files?fingerprint=${encodeURIComponent(fingerprint)}&chapter=${index}`;
 }
 
 export function ChapterAudioProvider({
@@ -68,69 +66,171 @@ export function ChapterAudioProvider({
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [playingIndex, setPlayingIndex] = useState<number | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [exporting, setExporting] = useState(false);
 
-	const abortRef = useRef<AbortController | null>(null);
-	const generatingRef = useRef(false);
+	const fingerprint = useMemo(
+		() => (book ? bookFingerprint(book) : null),
+		[book],
+	);
+	const pollRef = useRef<number | null>(null);
+	const jobIdRef = useRef<string | null>(null);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 
+	const stopPolling = useCallback(() => {
+		if (pollRef.current !== null) {
+			window.clearInterval(pollRef.current);
+			pollRef.current = null;
+		}
+		jobIdRef.current = null;
+		setIsGenerating(false);
+	}, []);
+
 	useEffect(() => {
-		setJobs((prev) => {
-			for (const job of prev) {
-				if (job.audioUrl) URL.revokeObjectURL(job.audioUrl);
-			}
-			return [];
-		});
+		stopPolling();
 		setRunIndices([]);
 		setPlayingIndex(null);
 		setError(null);
 		audioRef.current?.pause();
 		audioRef.current = null;
-		if (book) setJobs(createChapterJobs(book.chapterCount));
-	}, [book]);
+		if (!book) {
+			setJobs([]);
+			return;
+		}
+		setJobs(createChapterJobs(book.chapterCount));
+		const fp = bookFingerprint(book);
+		fetch(`/api/render?fingerprint=${encodeURIComponent(fp)}`)
+			.then((res) => (res.ok ? res.json() : null))
+			.then(
+				(
+					data: { exists?: boolean; chapters?: ServerChapterSnapshot[] } | null,
+				) => {
+					if (!data?.exists) return;
+					const done = (data.chapters ?? []).filter((c) => c.status === "done");
+					if (done.length === 0) return;
+					setJobs((prev) =>
+						prev.map((job) => {
+							const entry = done.find((c) => c.index === job.chapterIndex);
+							return entry
+								? {
+										...job,
+										status: "done" as const,
+										totalChunks: entry.totalChunks,
+										doneChunks: entry.totalChunks,
+										audioUrl: fileUrl(fp, job.chapterIndex),
+									}
+								: job;
+						}),
+					);
+					setRunIndices(done.map((c) => c.index));
+				},
+			)
+			.catch(() => {});
+		return stopPolling;
+	}, [book, stopPolling]);
 
-	useEffect(() => {
-		return () => {
-			abortRef.current?.abort();
-			audioRef.current?.pause();
-			setJobs((prev) => {
-				for (const job of prev) {
-					if (job.audioUrl) URL.revokeObjectURL(job.audioUrl);
-				}
-				return prev;
-			});
-		};
-	}, []);
+	useEffect(() => stopPolling, [stopPolling]);
 
-	const renderChapter = useCallback(
-		async (
-			index: number,
-			text: string,
-			snapshot: SynthesisSnapshot,
-			locale: string,
-			signal: AbortSignal,
-		): Promise<string> => {
-			const chunks = chunkText(text, locale);
-			setJobs((prev) => setJobStatus(prev, index, { chunks, doneChunks: 0 }));
-			const blobs: Blob[] = [];
-			for (const input of chunks) {
-				blobs.push(
-					await postSpeech(buildSpeechRequest(snapshot, input), signal),
-				);
-				setJobs((prev) =>
-					setJobStatus(prev, index, {
-						doneChunks: (prev[index]?.doneChunks ?? 0) + 1,
-					}),
-				);
-			}
-			return URL.createObjectURL(
-				new Blob(blobs, { type: blobs[0]?.type ?? "audio/mpeg" }),
+	const applySnapshot = useCallback(
+		(snap: JobSnapshot, fp: string) => {
+			setJobs((prev) =>
+				prev.map((job) => {
+					const entry = snap.chapters.find((c) => c.index === job.chapterIndex);
+					if (!entry) return job;
+					return {
+						...job,
+						status: entry.status,
+						totalChunks: entry.totalChunks,
+						doneChunks: entry.doneChunks,
+						error: entry.error,
+						audioUrl:
+							entry.status === "done"
+								? fileUrl(fp, job.chapterIndex)
+								: job.audioUrl,
+					};
+				}),
 			);
+			setRunIndices(snap.chapters.map((c) => c.index));
+			if (snap.status !== "rendering") stopPolling();
 		},
-		[],
+		[stopPolling],
+	);
+
+	const pollJob = useCallback(
+		(jobId: string, fp: string) => {
+			stopPolling();
+			jobIdRef.current = jobId;
+			setIsGenerating(true);
+			const tick = () => {
+				fetch(`/api/render?id=${encodeURIComponent(jobId)}`)
+					.then((res) => {
+						if (!res.ok) throw new Error(`Render status failed: ${res.status}`);
+						return res.json() as Promise<JobSnapshot>;
+					})
+					.then((snap) => applySnapshot(snap, fp))
+					.catch((e: unknown) => {
+						setError(e instanceof Error ? e.message : "Render status failed");
+						stopPolling();
+					});
+			};
+			tick();
+			pollRef.current = window.setInterval(tick, 1000);
+		},
+		[applySnapshot, stopPolling],
+	);
+
+	const startChapters = useCallback(
+		(indices: number[]) => {
+			if (!book || !fingerprint) return;
+			const snapshot = { model, voice, speed, volume, format };
+			setError(null);
+			setJobs((prev) =>
+				prev.map((job, i) =>
+					indices.includes(i)
+						? {
+								...job,
+								status: "queued" as const,
+								totalChunks: 0,
+								doneChunks: 0,
+								error: undefined,
+							}
+						: job,
+				),
+			);
+			fetch("/api/render", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					fingerprint,
+					fileName: book.title,
+					voice,
+					synthesis: snapshot,
+					chapters: indices.map((index) => ({
+						index,
+						title: book.chapters[index]?.title ?? `Chapter ${index + 1}`,
+						text: book.chapters[index]?.text ?? "",
+						wordCount: book.chapters[index]?.wordCount ?? 0,
+					})),
+				}),
+			})
+				.then((res) => {
+					if (!res.ok) {
+						return res.json().then((data: { error?: string }) => {
+							throw new Error(data.error ?? `Render failed: ${res.status}`);
+						});
+					}
+					return res.json() as Promise<{ jobId: string }>;
+				})
+				.then(({ jobId }) => pollJob(jobId, fingerprint))
+				.catch((e: unknown) => {
+					setError(e instanceof Error ? e.message : "Could not start render");
+					setIsGenerating(false);
+				});
+		},
+		[book, fingerprint, model, voice, speed, volume, format, pollJob],
 	);
 
 	const generate = useCallback(() => {
-		if (generatingRef.current || !book) return;
+		if (jobIdRef.current || !book) return;
 		if (voice === "") {
 			setError("Choose a voice before generating.");
 			return;
@@ -140,120 +240,66 @@ export function ChapterAudioProvider({
 			setError("Select at least one chapter in Chapter Scope.");
 			return;
 		}
-		setError(null);
-		setRunIndices(indices);
+		startChapters(indices);
+	}, [book, selected, voice, startChapters]);
+
+	const cancel = useCallback(() => {
+		const jobId = jobIdRef.current;
+		stopPolling();
 		setJobs((prev) =>
-			prev.map((job, i) =>
-				indices.includes(i)
-					? { ...job, status: "queued" as const, error: undefined }
+			prev.map((job) =>
+				job.status === "queued" || job.status === "rendering"
+					? { ...job, status: "idle" as const, totalChunks: 0, doneChunks: 0 }
 					: job,
 			),
 		);
+		if (jobId) {
+			fetch(`/api/render?id=${encodeURIComponent(jobId)}`, {
+				method: "DELETE",
+			}).catch(() => {});
+		}
+	}, [stopPolling]);
 
-		const snapshot: SynthesisSnapshot = { model, voice, speed, volume, format };
-		const locale = voiceIdToLocale(voice);
-		const controller = new AbortController();
-		abortRef.current = controller;
-		generatingRef.current = true;
-		setIsGenerating(true);
-
-		(async () => {
-			for (const index of indices) {
-				if (controller.signal.aborted) break;
-				const chapter = book.chapters[index];
-				if (!chapter) continue;
+	const clearRender = useCallback(() => {
+		if (!book || !fingerprint || jobIdRef.current) return;
+		setError(null);
+		audioRef.current?.pause();
+		audioRef.current = null;
+		setPlayingIndex(null);
+		fetch(`/api/render?fingerprint=${encodeURIComponent(fingerprint)}`, {
+			method: "DELETE",
+		})
+			.then((res) => {
+				if (!res.ok) throw new Error("Could not delete previous render");
 				setJobs((prev) =>
-					setJobStatus(prev, index, { status: "rendering", error: undefined }),
+					prev.map((job) => ({
+						...job,
+						status: "idle" as const,
+						totalChunks: 0,
+						doneChunks: 0,
+						audioUrl: undefined,
+						error: undefined,
+					})),
 				);
-				try {
-					const audioUrl = await renderChapter(
-						index,
-						chapter.text,
-						snapshot,
-						locale,
-						controller.signal,
-					);
-					setJobs((prev) => {
-						const old = prev[index]?.audioUrl;
-						if (old) URL.revokeObjectURL(old);
-						return setJobStatus(prev, index, { status: "done", audioUrl });
-					});
-				} catch (e) {
-					if (controller.signal.aborted) break;
-					setJobs((prev) =>
-						setJobStatus(prev, index, {
-							status: "error",
-							error: e instanceof Error ? e.message : "Render failed",
-						}),
-					);
-				}
-			}
-			if (controller.signal.aborted) {
-				setJobs((prev) =>
-					prev.map((job) =>
-						job.status === "queued" || job.status === "rendering"
-							? { ...job, status: "idle" as const }
-							: job,
-					),
+				setRunIndices([]);
+			})
+			.catch((e: unknown) => {
+				setError(
+					e instanceof Error ? e.message : "Could not delete previous render",
 				);
-			}
-			generatingRef.current = false;
-			setIsGenerating(false);
-		})();
-	}, [book, selected, model, voice, speed, volume, format, renderChapter]);
-
-	const cancel = useCallback(() => {
-		abortRef.current?.abort();
-	}, []);
+			});
+	}, [book, fingerprint]);
 
 	const retry = useCallback(
 		(index: number) => {
-			if (generatingRef.current || !book) return;
-			const chapter = book.chapters[index];
-			if (!chapter) return;
+			if (jobIdRef.current || !book) return;
 			if (voice === "") {
 				setError("Choose a voice before generating.");
 				return;
 			}
-			setError(null);
-			setRunIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
-			setJobs((prev) =>
-				setJobStatus(prev, index, { status: "rendering", error: undefined }),
-			);
-			const snapshot: SynthesisSnapshot = {
-				model,
-				voice,
-				speed,
-				volume,
-				format,
-			};
-			const controller = new AbortController();
-			const locale = voiceIdToLocale(voice);
-			renderChapter(
-				index,
-				chapter.text,
-				snapshot,
-				locale,
-				controller.signal,
-			).then(
-				(audioUrl) => {
-					setJobs((prev) => {
-						const old = prev[index]?.audioUrl;
-						if (old) URL.revokeObjectURL(old);
-						return setJobStatus(prev, index, { status: "done", audioUrl });
-					});
-				},
-				(e: unknown) => {
-					setJobs((prev) =>
-						setJobStatus(prev, index, {
-							status: "error",
-							error: e instanceof Error ? e.message : "Render failed",
-						}),
-					);
-				},
-			);
+			startChapters([index]);
 		},
-		[book, model, voice, speed, volume, format, renderChapter],
+		[book, voice, startChapters],
 	);
 
 	const togglePlay = useCallback(
@@ -282,9 +328,42 @@ export function ChapterAudioProvider({
 		[jobs, playingIndex],
 	);
 
+	const exportM4b = useCallback(() => {
+		if (!book || !fingerprint || exporting) return;
+		setExporting(true);
+		setError(null);
+		fetch("/api/export", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ fingerprint, title: book.title }),
+		})
+			.then((res) => {
+				if (!res.ok) {
+					return res.json().then((data: { error?: string }) => {
+						throw new Error(data.error ?? `Export failed: ${res.status}`);
+					});
+				}
+				return res.blob();
+			})
+			.then((blob) => {
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = `${book.title.replace(/[^A-Za-z0-9._-]+/g, " ").trim() || "book"}.m4b`;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				URL.revokeObjectURL(url);
+			})
+			.catch((e: unknown) => {
+				setError(e instanceof Error ? e.message : "Export failed");
+			})
+			.finally(() => setExporting(false));
+	}, [book, fingerprint, exporting]);
+
 	const doneCount = useMemo(
-		() => runIndices.filter((i) => jobs[i]?.status === "done").length,
-		[runIndices, jobs],
+		() => jobs.filter((j) => j.status === "done").length,
+		[jobs],
 	);
 
 	const value = useMemo(
@@ -295,10 +374,13 @@ export function ChapterAudioProvider({
 			playingIndex,
 			error,
 			doneCount,
+			exporting,
 			generate,
 			cancel,
+			clearRender,
 			retry,
 			togglePlay,
+			exportM4b,
 		}),
 		[
 			jobs,
@@ -307,10 +389,13 @@ export function ChapterAudioProvider({
 			playingIndex,
 			error,
 			doneCount,
+			exporting,
 			generate,
 			cancel,
+			clearRender,
 			retry,
 			togglePlay,
+			exportM4b,
 		],
 	);
 
