@@ -26,6 +26,9 @@ export function useModels() {
 	return useQuery({
 		queryKey: ["models"],
 		queryFn: fetchModels,
-		staleTime: 5 * 60 * 1000,
+		staleTime: Number.POSITIVE_INFINITY,
+		gcTime: 30 * 60 * 1000,
+		retry: 1,
+		refetchOnWindowFocus: false,
 	});
 }

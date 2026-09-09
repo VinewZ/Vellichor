@@ -7,6 +7,7 @@ import {
 	RotateCcwClock,
 	Volume2,
 } from "lucide-react";
+import { SynthesisControls } from "./synthesis-controls";
 import { Button } from "./ui/button";
 
 export function Mixer() {
@@ -20,6 +21,7 @@ export function Mixer() {
 					CH 01 RENDERED
 				</span>
 			</div>
+			<SynthesisControls />
 			<div className="mb-4">
 				<h4 className="font-headline font-bold text-sm uppercase">
 					Chapter 1: A Beginning is a Very Delicate Time

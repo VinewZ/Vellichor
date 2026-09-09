@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiModelsRouteImport } from './routes/api/models'
+import { Route as ApiSpeechRouteImport } from './routes/api/speech'
 import { Route as ApiVoicesRouteImport } from './routes/api/voices'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ApiModelsRoute = ApiModelsRouteImport.update({
   path: '/api/models',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSpeechRoute = ApiSpeechRouteImport.update({
+  id: '/api/speech',
+  path: '/api/speech',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVoicesRoute = ApiVoicesRouteImport.update({
   id: '/api/voices',
   path: '/api/voices',
@@ -32,30 +38,34 @@ const ApiVoicesRoute = ApiVoicesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/models': typeof ApiModelsRoute
+  '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/models': typeof ApiModelsRoute
+  '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/models': typeof ApiModelsRoute
+  '/api/speech': typeof ApiSpeechRoute
   '/api/voices': typeof ApiVoicesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/models' | '/api/voices'
+  fullPaths: '/' | '/api/models' | '/api/speech' | '/api/voices'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/models' | '/api/voices'
-  id: '__root__' | '/' | '/api/models' | '/api/voices'
+  to: '/' | '/api/models' | '/api/speech' | '/api/voices'
+  id: '__root__' | '/' | '/api/models' | '/api/speech' | '/api/voices'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiModelsRoute: typeof ApiModelsRoute
+  ApiSpeechRoute: typeof ApiSpeechRoute
   ApiVoicesRoute: typeof ApiVoicesRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/speech': {
+      id: '/api/speech'
+      path: '/api/speech'
+      fullPath: '/api/speech'
+      preLoaderRoute: typeof ApiSpeechRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/voices': {
       id: '/api/voices'
       path: '/api/voices'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiModelsRoute: ApiModelsRoute,
+  ApiSpeechRoute: ApiSpeechRoute,
   ApiVoicesRoute: ApiVoicesRoute,
 }
 export const routeTree = rootRouteImport

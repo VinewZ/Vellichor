@@ -69,7 +69,7 @@ export function Chapters() {
 		<section className="bg-surface-bright border-2 border-outline p-6 shadow-section">
 			<div className="flex items-center justify-between pb-4 border-b-2 border-outline mb-4">
 				<h2 className="font-headline font-bold text-lg uppercase tracking-tight">
-					04. Chapter Scope
+					02. Chapter Scope
 				</h2>
 				<span className="text-xs font-mono font-bold text-secondary">
 					4 of 5 SELECTED

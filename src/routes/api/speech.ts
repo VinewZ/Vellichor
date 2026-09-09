@@ -1,0 +1,59 @@
+import { createFileRoute } from "@tanstack/react-router";
+
+const FALLBACK_KOKORO_BASE_URL = "http://127.0.0.1:8880";
+
+export const Route = createFileRoute("/api/speech")({
+	server: {
+		handlers: {
+			POST: async ({ request }: { request: Request }) => {
+				const baseUrl = process.env.KOKORO_BASE_URL ?? FALLBACK_KOKORO_BASE_URL;
+
+				let body: unknown;
+				try {
+					body = await request.json();
+				} catch {
+					return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+				}
+
+				let res: Response;
+				try {
+					res = await fetch(`${baseUrl}/v1/audio/speech`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(body),
+					});
+				} catch (error) {
+					return Response.json(
+						{
+							error: "Kokoro backend unreachable",
+							detail: error instanceof Error ? error.message : String(error),
+						},
+						{ status: 502 },
+					);
+				}
+
+				if (!res.ok) {
+					let detail: unknown = null;
+					try {
+						detail = await res.json();
+					} catch {
+						// upstream returned non-JSON error (e.g. binary error page)
+					}
+					return Response.json(
+						{ error: `Kokoro responded with status ${res.status}`, detail },
+						{ status: 502 },
+					);
+				}
+
+				const contentType = res.headers.get("Content-Type") ?? "audio/mpeg";
+				const buffer = await res.arrayBuffer();
+				return new Response(buffer, {
+					headers: {
+						"Content-Type": contentType,
+						"Cache-Control": "no-store",
+					},
+				});
+			},
+		},
+	},
+});
