@@ -13,6 +13,7 @@ export interface ChapterJob {
 	status: ChapterJobStatus;
 	totalChunks: number;
 	doneChunks: number;
+	durationSec?: number;
 	audioUrl?: string;
 	error?: string;
 }

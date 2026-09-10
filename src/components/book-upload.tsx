@@ -1,12 +1,39 @@
 import { Book, Upload } from "lucide-react";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useBook } from "@/hooks/useBook";
+import { useChapterAudio } from "@/hooks/useChapterAudio";
+import { useSynthesis } from "@/hooks/useSynthesis";
+import { formatAudioETA, formatDuration } from "@/lib/book";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 
 export function BookUpload() {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const { book, isParsing, error, parseFile } = useBook();
+	const { jobs } = useChapterAudio();
+	const { speed } = useSynthesis();
+
+	const audioLabel = useMemo(() => {
+		if (!book) return "—";
+		if (jobs.length === book.chapterCount && jobs.length > 0) {
+			let actualSec = 0;
+			let allKnown = true;
+			for (const job of jobs) {
+				if (
+					job.status === "done" &&
+					typeof job.durationSec === "number" &&
+					Number.isFinite(job.durationSec)
+				) {
+					actualSec += job.durationSec;
+				} else {
+					allKnown = false;
+					break;
+				}
+			}
+			if (allKnown) return formatDuration(actualSec);
+		}
+		return formatAudioETA(book.wordCount, undefined, speed);
+	}, [book, jobs, speed]);
 
 	const isUploaded = book !== null;
 	const isEpub = book?.fileFormat === "epub";
@@ -104,7 +131,7 @@ export function BookUpload() {
 								Est. Audio
 							</span>
 							<span className="font-headline font-bold text-lg text-secondary">
-								{book ? book.estimatedAudio : "—"}
+								{book ? audioLabel : "—"}
 							</span>
 						</div>
 					</div>

@@ -22,6 +22,7 @@ interface ServerChapterSnapshot {
 	status: ChapterJob["status"];
 	totalChunks: number;
 	doneChunks: number;
+	durationSec?: number;
 	error?: string;
 }
 
@@ -120,6 +121,7 @@ export function ChapterAudioProvider({
 										status: "done" as const,
 										totalChunks: entry.totalChunks,
 										doneChunks: entry.totalChunks,
+										durationSec: entry.durationSec,
 										audioUrl: fileUrl(fp, job.chapterIndex),
 									}
 								: job;
@@ -145,6 +147,7 @@ export function ChapterAudioProvider({
 						status: entry.status,
 						totalChunks: entry.totalChunks,
 						doneChunks: entry.doneChunks,
+						durationSec: entry.durationSec ?? job.durationSec,
 						error: entry.error,
 						audioUrl:
 							entry.status === "done"
@@ -281,6 +284,7 @@ export function ChapterAudioProvider({
 						status: "idle" as const,
 						totalChunks: 0,
 						doneChunks: 0,
+						durationSec: undefined,
 						audioUrl: undefined,
 						error: undefined,
 					})),

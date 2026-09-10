@@ -79,12 +79,36 @@ export function formatWordCount(words: number): string {
 	return words.toString();
 }
 
-export function formatAudioETA(words: number, wpm = 150): string {
-	const totalMinutes = Math.max(1, Math.round(words / wpm));
+export const KOKORO_BASE_WPM = 710;
+
+export function formatAudioETA(
+	words: number,
+	wpm: number = KOKORO_BASE_WPM,
+	speed = 1,
+): string {
+	const safeSpeed = Number.isFinite(speed) && speed > 0 ? speed : 1;
+	const totalSeconds = Math.max(
+		1,
+		Math.round((words / wpm) * 60 * (1 / safeSpeed)),
+	);
+	if (totalSeconds < 60) return `${totalSeconds}s`;
+	const totalMinutes = Math.max(1, Math.round(totalSeconds / 60));
 	const hours = Math.floor(totalMinutes / 60);
 	const minutes = totalMinutes % 60;
 	if (hours === 0) return `${minutes}m`;
 	return `${hours}h ${minutes}m`;
+}
+
+export function formatDuration(totalSeconds: number): string {
+	if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "—";
+	const secs = Math.round(totalSeconds);
+	if (secs < 60) return `${secs}s`;
+	const minutes = Math.floor(secs / 60);
+	const remSecs = secs % 60;
+	const hours = Math.floor(minutes / 60);
+	const remMins = minutes % 60;
+	if (hours === 0) return `${minutes}m ${remSecs}s`;
+	return `${hours}h ${remMins}m`;
 }
 
 export function formatFileSizeMB(bytes: number): string {

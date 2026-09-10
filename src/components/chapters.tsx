@@ -1,8 +1,10 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useBook } from "@/hooks/useBook";
+import { useChapterAudio } from "@/hooks/useChapterAudio";
 import { useChapterSelection } from "@/hooks/useChapterSelection";
+import { useSynthesis } from "@/hooks/useSynthesis";
 import type { BookChapter } from "@/lib/book";
-import { formatAudioETA } from "@/lib/book";
+import { formatAudioETA, formatDuration } from "@/lib/book";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 
@@ -10,6 +12,8 @@ interface ChapterRowProps {
 	index: number;
 	chapter: BookChapter;
 	checked: boolean;
+	durationSec?: number;
+	speed: number;
 	onToggle: (index: number) => void;
 }
 
@@ -17,8 +21,14 @@ const ChapterRow = memo(function ChapterRow({
 	index,
 	chapter,
 	checked,
+	durationSec,
+	speed,
 	onToggle,
 }: ChapterRowProps) {
+	const label =
+		durationSec !== undefined
+			? formatDuration(durationSec)
+			: formatAudioETA(chapter.wordCount, undefined, speed);
 	return (
 		<button
 			type="button"
@@ -36,7 +46,7 @@ const ChapterRow = memo(function ChapterRow({
 						Ch {index + 1}: {chapter.title}
 					</span>
 					<span className="font-mono text-[11px] font-bold text-secondary shrink-0 uppercase">
-						{formatAudioETA(chapter.wordCount)}
+						{label}
 					</span>
 				</div>
 				<p className="text-[11px] text-on-surface-variant font-mono">
@@ -50,15 +60,42 @@ const ChapterRow = memo(function ChapterRow({
 
 export function Chapters() {
 	const { book, isParsing } = useBook();
+	const { speed } = useSynthesis();
+	const { jobs } = useChapterAudio();
 	const {
 		isSelected,
 		toggle,
 		selectAll,
 		deselectAll,
+		selected,
 		selectedCount,
 		totalCount,
 		selectedAudioETA,
 	} = useChapterSelection();
+
+	const totalLabel = useMemo(() => {
+		if (!book || selected.size === 0) return selectedAudioETA;
+		let actualSec = 0;
+		let actualCount = 0;
+		let remainingWords = 0;
+		for (const index of selected) {
+			const job = jobs[index];
+			const chapter = book.chapters[index];
+			if (
+				job?.status === "done" &&
+				typeof job.durationSec === "number" &&
+				Number.isFinite(job.durationSec)
+			) {
+				actualSec += job.durationSec;
+				actualCount += 1;
+			} else {
+				remainingWords += chapter?.wordCount ?? 0;
+			}
+		}
+		if (actualCount === 0) return selectedAudioETA;
+		if (remainingWords === 0) return `${formatDuration(actualSec)} ACTUAL`;
+		return `${formatDuration(actualSec)} + ~${formatAudioETA(remainingWords, undefined, speed)} EST`;
+	}, [book, jobs, selected, selectedAudioETA, speed]);
 
 	return (
 		<section className="bg-surface-bright border-2 border-outline p-6 shadow-section">
@@ -81,7 +118,7 @@ export function Chapters() {
 					</Button>
 				</div>
 				<span className="text-[10px] font-mono text-on-surface-variant font-normal uppercase">
-					EST. TOTAL: {selectedAudioETA}
+					EST. TOTAL: {totalLabel}
 				</span>
 			</div>
 			<div className="flex flex-col gap-2.5 max-h-118 overflow-y-auto pr-1">
@@ -108,6 +145,8 @@ export function Chapters() {
 							index={index}
 							chapter={chapter}
 							checked={isSelected(index)}
+							durationSec={jobs[index]?.durationSec}
+							speed={speed}
 							onToggle={toggle}
 						/>
 					))

@@ -7,6 +7,7 @@ import {
 	useState,
 } from "react";
 import { useBook } from "@/hooks/useBook";
+import { useSynthesis } from "@/hooks/useSynthesis";
 import { formatAudioETA } from "@/lib/book";
 
 interface ChapterSelectionContextValue {
@@ -30,6 +31,7 @@ export function ChapterSelectionProvider({
 	children: React.ReactNode;
 }) {
 	const { book } = useBook();
+	const { speed } = useSynthesis();
 	const [selected, setSelected] = useState<Set<number>>(new Set());
 
 	useEffect(() => {
@@ -84,7 +86,7 @@ export function ChapterSelectionProvider({
 			selectedCount: selected.size,
 			totalCount: book?.chapterCount ?? 0,
 			selectedWordCount,
-			selectedAudioETA: formatAudioETA(selectedWordCount),
+			selectedAudioETA: formatAudioETA(selectedWordCount, undefined, speed),
 		}),
 		[
 			selected,
@@ -94,6 +96,7 @@ export function ChapterSelectionProvider({
 			deselectAll,
 			book,
 			selectedWordCount,
+			speed,
 		],
 	);
 

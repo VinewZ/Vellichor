@@ -36,6 +36,7 @@ export interface JobChapterState {
 	status: ServerChapterStatus;
 	totalChunks: number;
 	doneChunks: number;
+	durationSec?: number;
 	error?: string;
 }
 
@@ -108,6 +109,7 @@ async function persistManifest(job: Job): Promise<void> {
 					wordCount: c.wordCount,
 					status: c.status,
 					totalChunks: c.totalChunks,
+					durationSec: c.durationSec,
 					file: c.status === "done" ? chapterFileName(c.index) : undefined,
 				})),
 			},
@@ -130,6 +132,25 @@ async function postChunk(
 	});
 	if (!res.ok) throw new Error(`Kokoro responded with status ${res.status}`);
 	return Buffer.from(await res.arrayBuffer());
+}
+
+async function probeDurationSec(filePath: string): Promise<number | undefined> {
+	try {
+		const { stdout } = await execFileAsync(ffprobePath(), [
+			"-v",
+			"error",
+			"-show_entries",
+			"format=duration",
+			"-of",
+			"csv=p=0",
+			filePath,
+		]);
+		const seconds = Number.parseFloat(stdout.trim());
+		if (Number.isFinite(seconds) && seconds >= 0) return seconds;
+	} catch {
+		// ignore probe failures
+	}
+	return undefined;
 }
 
 async function runJob(job: Job, input: StartRenderInput): Promise<void> {
@@ -160,6 +181,9 @@ async function runJob(job: Job, input: StartRenderInput): Promise<void> {
 			await writeFile(
 				chapterPath(job.fingerprint, chapter.index),
 				Buffer.concat(parts),
+			);
+			chapter.durationSec = await probeDurationSec(
+				chapterPath(job.fingerprint, chapter.index),
 			);
 			chapter.status = "done";
 		} catch (e) {
@@ -194,7 +218,10 @@ export async function startRender(input: StartRenderInput): Promise<string> {
 	const fingerprint = sanitizeFingerprint(input.fingerprint);
 	await mkdir(bookDir(fingerprint), { recursive: true });
 
-	const restored = new Map<number, { totalChunks: number }>();
+	const restored = new Map<
+		number,
+		{ totalChunks: number; durationSec?: number }
+	>();
 	try {
 		const raw = await readFile(manifestPath(fingerprint), "utf-8");
 		const manifest = JSON.parse(raw) as {
@@ -202,6 +229,7 @@ export async function startRender(input: StartRenderInput): Promise<string> {
 				index: number;
 				status?: string;
 				totalChunks?: number;
+				durationSec?: number;
 			}>;
 		};
 		for (const entry of manifest.chapters ?? []) {
@@ -209,7 +237,15 @@ export async function startRender(input: StartRenderInput): Promise<string> {
 				entry.status === "done" &&
 				(await fileExists(chapterPath(fingerprint, entry.index)))
 			) {
-				restored.set(entry.index, { totalChunks: entry.totalChunks ?? 0 });
+				const durationSec =
+					typeof entry.durationSec === "number" &&
+					Number.isFinite(entry.durationSec)
+						? entry.durationSec
+						: await probeDurationSec(chapterPath(fingerprint, entry.index));
+				restored.set(entry.index, {
+					totalChunks: entry.totalChunks ?? 0,
+					durationSec,
+				});
 			}
 		}
 	} catch {
@@ -230,6 +266,7 @@ export async function startRender(input: StartRenderInput): Promise<string> {
 				status: (prior ? "done" : "queued") as ServerChapterStatus,
 				totalChunks: prior?.totalChunks ?? 0,
 				doneChunks: prior ? (prior.totalChunks ?? 0) : 0,
+				durationSec: prior?.durationSec,
 			};
 		}),
 		doneCount: restored.size,
@@ -280,22 +317,61 @@ export async function readManifest(fingerprint: string): Promise<{
 		title: string;
 		wordCount: number;
 		status: string;
+		totalChunks?: number;
+		durationSec?: number;
 	}>;
 }> {
 	try {
-		const raw = await readFile(
-			manifestPath(sanitizeFingerprint(fingerprint)),
-			"utf-8",
-		);
+		const fp = sanitizeFingerprint(fingerprint);
+		const raw = await readFile(manifestPath(fp), "utf-8");
 		const manifest = JSON.parse(raw) as {
 			chapters?: Array<{
 				index: number;
 				title: string;
 				wordCount: number;
 				status: string;
+				totalChunks?: number;
+				durationSec?: number;
 			}>;
 		};
-		return { exists: true, chapters: manifest.chapters ?? [] };
+		const chapters = manifest.chapters ?? [];
+		let patched = false;
+		for (const entry of chapters) {
+			if (
+				entry.status === "done" &&
+				(typeof entry.durationSec !== "number" ||
+					!Number.isFinite(entry.durationSec))
+			) {
+				const probed = await probeDurationSec(chapterPath(fp, entry.index));
+				if (probed !== undefined) {
+					entry.durationSec = probed;
+					patched = true;
+				}
+			}
+		}
+		if (patched) {
+			await writeFile(
+				manifestPath(fp),
+				JSON.stringify(
+					{
+						fingerprint: fp,
+						status: (manifest as { status?: string }).status ?? "done",
+						chapters: chapters.map((c) => ({
+							index: c.index,
+							title: c.title,
+							wordCount: c.wordCount,
+							status: c.status,
+							totalChunks: c.totalChunks,
+							durationSec: c.durationSec,
+							file: c.status === "done" ? chapterFileName(c.index) : undefined,
+						})),
+					},
+					null,
+					2,
+				),
+			).catch(() => {});
+		}
+		return { exists: true, chapters };
 	} catch {
 		return { exists: false, chapters: [] };
 	}
