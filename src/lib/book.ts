@@ -34,6 +34,32 @@ export interface ParsedBook {
 	fullText: string;
 }
 
+export interface ExportMetadata {
+	title: string;
+	author: string;
+	publisher?: string;
+	date?: string;
+	fileName: string;
+}
+
+export interface ExportCover {
+	dataBase64: string;
+	mime: string;
+}
+
+export function isAttachableCoverMime(mime: string | undefined): boolean {
+	return mime === "image/jpeg" || mime === "image/png";
+}
+
+export function parsedBookToExportMeta(book: ParsedBook): ExportMetadata {
+	return {
+		title: book.title,
+		author: book.author,
+		publisher: book.publisher,
+		date: book.date,
+		fileName: book.fileName,
+	};
+}
 export function revokeCoverUrl(url: string | undefined): void {
 	if (url?.startsWith("blob:")) {
 		URL.revokeObjectURL(url);

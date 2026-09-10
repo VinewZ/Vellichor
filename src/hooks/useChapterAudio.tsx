@@ -10,7 +10,11 @@ import {
 import { useBook } from "@/hooks/useBook";
 import { useChapterSelection } from "@/hooks/useChapterSelection";
 import { useSynthesis } from "@/hooks/useSynthesis";
-import { bookFingerprint } from "@/lib/book";
+import {
+	bookFingerprint,
+	isAttachableCoverMime,
+	parsedBookToExportMeta,
+} from "@/lib/book";
 import { type ChapterJob, createChapterJobs } from "@/lib/chapter-audio";
 
 interface ServerChapterSnapshot {
@@ -332,19 +336,54 @@ export function ChapterAudioProvider({
 		if (!book || !fingerprint || exporting) return;
 		setExporting(true);
 		setError(null);
-		fetch("/api/export", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ fingerprint, title: book.title }),
-		})
-			.then((res) => {
-				if (!res.ok) {
-					return res.json().then((data: { error?: string }) => {
-						throw new Error(data.error ?? `Export failed: ${res.status}`);
-					});
+		const buildCover = async (): Promise<
+			{ dataBase64: string; mime: string } | undefined
+		> => {
+			try {
+				if (!book.coverUrl || !isAttachableCoverMime(book.coverMime))
+					return undefined;
+				const res = await fetch(book.coverUrl);
+				if (!res.ok) return undefined;
+				const blob = await res.blob();
+				if (!isAttachableCoverMime(blob.type || book.coverMime))
+					return undefined;
+				if (blob.size === 0 || blob.size > 5 * 1024 * 1024) return undefined;
+				const buf = await blob.arrayBuffer();
+				const bytes = new Uint8Array(buf);
+				let binary = "";
+				const chunk = 0x8000;
+				for (let i = 0; i < bytes.length; i += chunk) {
+					binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
 				}
-				return res.blob();
-			})
+				return {
+					dataBase64: btoa(binary),
+					mime: blob.type || (book.coverMime as string),
+				};
+			} catch {
+				return undefined;
+			}
+		};
+		(async () => {
+			const cover = await buildCover();
+			const metadata = parsedBookToExportMeta(book);
+			const res = await fetch("/api/export", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					fingerprint,
+					title: book.title,
+					metadata,
+					...(cover ? { cover } : {}),
+				}),
+			});
+			if (!res.ok) {
+				const data = (await res.json().catch(() => null)) as {
+					error?: string;
+				} | null;
+				throw new Error(data?.error ?? `Export failed: ${res.status}`);
+			}
+			return res.blob();
+		})()
 			.then((blob) => {
 				const url = URL.createObjectURL(blob);
 				const a = document.createElement("a");

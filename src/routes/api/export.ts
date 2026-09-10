@@ -20,9 +20,47 @@ export const Route = createFileRoute("/api/export")({
 						{ status: 400 },
 					);
 				}
-				const title = typeof b.title === "string" && b.title ? b.title : "book";
+				const rawMeta = (b.metadata ?? {}) as Record<string, unknown>;
+				const pick = (v: unknown): string | undefined =>
+					typeof v === "string" && v.trim()
+						? v.trim().slice(0, 500)
+						: undefined;
+				const title =
+					pick(rawMeta.title) ??
+					(typeof b.title === "string" && b.title.trim()
+						? b.title.trim().slice(0, 500)
+						: "book");
+				const metadata = {
+					title,
+					author: pick(rawMeta.author),
+					publisher: pick(rawMeta.publisher),
+					date: pick(rawMeta.date)?.slice(0, 50),
+					fileName:
+						typeof rawMeta.fileName === "string" && rawMeta.fileName.trim()
+							? rawMeta.fileName.trim().slice(0, 120)
+							: undefined,
+				};
+				let cover: { dataBase64: string; mime: string } | undefined;
+				const rawCover = b.cover as Record<string, unknown> | undefined;
+				if (
+					rawCover &&
+					typeof rawCover.dataBase64 === "string" &&
+					(rawCover.mime === "image/jpeg" || rawCover.mime === "image/png")
+				) {
+					if (rawCover.dataBase64.length > 7 * 1024 * 1024) {
+						return Response.json(
+							{ error: "Cover image too large" },
+							{ status: 400 },
+						);
+					}
+					cover = { dataBase64: rawCover.dataBase64, mime: rawCover.mime };
+				}
 				try {
-					const { filePath, fileName } = await exportM4b(b.fingerprint, title);
+					const { filePath, fileName } = await exportM4b(
+						b.fingerprint,
+						metadata,
+						cover,
+					);
 					const size = (await fs.stat(filePath)).size;
 					return new Response(
 						Readable.toWeb(createReadStream(filePath)) as ReadableStream,
