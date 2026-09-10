@@ -1,203 +1,75 @@
-Welcome to your new TanStack Start app!
+# PageVoice — frontend for Kokoro TTS
 
-# Getting Started
+Turn PDF / EPUB books into chapter-by-chapter audiobooks and a tagged `.m4b`.
 
-To run this application:
+This is a web frontend for [Kokoro TTS](https://github.com/hwdsl2/docker-kokoro) — it does no inference itself, it only sends text chunks to a running Kokoro server (`POST /v1/audio/speech`) and assembles the returned audio.
+
+Upload a book → pick a voice → render chapters server-side → preview per-chapter audio → export a single M4B with chapter marks, book metadata, and cover art.
+
+## Features
+
+- **Book parsing (client-side):**
+  - PDF via `pdfjs-dist` (title/author, outline → chapters, first page → cover JPEG).
+  - EPUB via `jszip` (dc:title/creator/publisher/date, nav/NCX → TOC, cover-image lookup).
+  - 100 MB limit, word count + audio ETA, fingerprint `fileName--sizeMB` for disk cache.
+- **Voices & synthesis:**
+  - Voice list + preview (`/api/voices`, `/api/speech`), model / speed / volume / format controls.
+- **Chapter rendering (server-side):**
+  - Sentence-aware chunking (`Intl.Segmenter` + line-break preservation, ~3800 chars, Kokoro 4000-char hard limit).
+  - Sequential render per chapter, chunk → Kokoro `POST /v1/audio/speech` → concat → `ch-XX.mp3`.
+  - Disk layout: `data/books/<fingerprint>/ch-*.mp3 + manifest.json`.
+  - Resume done chapters, poll job status, cancel, clear render (`DELETE /api/render?fingerprint=`).
+- **M4B export:**
+  - `ffprobe` durations → `chapters.meta` (`FFMETADATA1` + `[CHAPTER]`).
+  - Global tags: `title / artist / album / album_artist / author / publisher / date / year / comment`.
+  - Cover: client blob → base64 (≤5 MB, JPEG/PNG only, SVG skipped) → `cover.jpg/png` → ffmpeg `-disposition:v attached_pic`. Falls back to audio-only on bad cover.
+  - `ffmpeg -f concat + -map_metadata 1 -c:a aac 128k -movflags +faststart book.m4b`.
+
+## Getting Started
 
 ```bash
 bun install
-bun --bun run dev
+bun run dev   # vite dev --port 3000
 ```
 
-# Building For Production
+Requires for render/export:
 
-To build this application for production:
+- [Kokoro TTS](https://github.com/hwdsl2/docker-kokoro) reachable at `KOKORO_BASE_URL` (default `http://127.0.0.1:8880`).
+- `ffmpeg` + `ffprobe` on PATH (or via `FFMPEG_PATH` / `FFPROBE_PATH`).
 
 ```bash
-bun --bun run build
+KOKORO_BASE_URL=http://127.0.0.1:8880 \
+DATA_DIR=./data \
+FFMPEG_PATH=ffmpeg FFPROBE_PATH=ffprobe \
+bun run dev
 ```
 
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
-
-## Linting & Formatting
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
+## Building For Production
 
 ```bash
-bun --bun run lint
-bun --bun run format
-bun --bun run check
+bun run build
+bun run preview
 ```
 
+## API Routes (`src/routes/api/`)
 
-## Shadcn
+- `POST /api/render` — `{ fingerprint, fileName, voice, synthesis, chapters[] }` → `{ jobId }`. Restores done chapters from `manifest.json`.
+- `GET /api/render?id=<jobId>` — job snapshot. `GET /api/render?fingerprint=` — manifest read.
+- `DELETE /api/render?id=` — cancel. `DELETE /api/render?fingerprint=` — abort + `rm -rf bookDir`.
+- `POST /api/export` — `{ fingerprint, title, metadata {title, author?, publisher?, date?, fileName?}, cover? {dataBase64, mime} }` → `audio/mp4` download. Cover must be JPEG/PNG base64 ≤ ~7 MB string.
+- `GET /api/files?fingerprint=&chapter=` — stream chapter MP3. Also `/api/speech`, `/api/voices` (Kokoro proxy).
 
-Add components using the latest version of [Shadcn](https://ui.shadcn.com/).
+Verify an export:
 
 ```bash
-pnpm dlx shadcn@latest add button
+ffprobe -show_entries format_tags -show_entries stream=codec_name,disposition book.m4b
 ```
 
+## Project Layout
 
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- `src/lib/parse-pdf.ts`, `parse-epub.ts`, `book.ts` — parsing + `ParsedBook` / `ExportMetadata` types.
+- `src/lib/chapter-audio.ts`, `synthesis.ts` — chunking, locale map, speech request builder.
+- `src/lib/server/render-jobs.ts` — job runner, manifest, `exportM4b()`.
+- `src/hooks/useBook.tsx`, `useChapterSelection.tsx`, `useSynthesis.tsx`, `useChapterAudio.tsx` — app state.
+- `src/components/book-upload.tsx`, `voice-selection.tsx`, `chapters.tsx`, `mixer.tsx`, `synthesis-controls.tsx` — UI.
+- `src/routes/api/` — TanStack Start server handlers.
