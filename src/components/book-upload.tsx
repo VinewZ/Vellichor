@@ -9,7 +9,7 @@ import { Button } from "./ui/button";
 
 export function BookUpload() {
 	const inputRef = useRef<HTMLInputElement>(null);
-	const { book, isParsing, error, parseFile } = useBook();
+	const { book, isParsing, error, parseFile, preloadParsers } = useBook();
 	const { jobs } = useChapterAudio();
 	const { speed } = useSynthesis();
 
@@ -137,6 +137,8 @@ export function BookUpload() {
 					</div>
 					<label
 						htmlFor="book-upload"
+						onMouseEnter={preloadParsers}
+						onFocus={preloadParsers}
 						className="flex cursor-pointer flex-col items-center justify-center border-2 border-outline border-dashed p-3.5 text-center transition-colors"
 					>
 						<input

@@ -8,6 +8,7 @@ import {
 	formatFileSizeMB,
 	formatWordCount,
 } from "./book";
+import { mapPool, yieldToUI } from "./map-pool";
 
 function parseXml(xml: string): Document {
 	const doc = new DOMParser().parseFromString(xml, "application/xml");
@@ -269,26 +270,36 @@ export async function parseEpub(file: File): Promise<ParsedBook> {
 		}
 	}
 
-	const chapters: BookChapter[] = [];
-	const chapterTexts: string[] = [];
-	for (const id of spineIds) {
+	const spineChapters = await mapPool(spineIds, 8, async (id, spineIndex) => {
+		// Yield periodically so the upload progress UI keeps painting on huge books.
+		if (spineIndex % 16 === 0) await yieldToUI();
 		const item = manifest.get(id);
-		if (!item) continue;
+		if (!item) return null;
 		const entry = zip.file(item.href);
-		if (!entry) continue;
+		if (!entry) return null;
 		const html = await entry.async("string");
 		const { title: htmlTitle, text } = extractHtmlText(html);
-		if (!text) continue;
+		if (!text) return null;
 		const key = item.href.split("#")[0];
-		const chapterTitle =
-			hrefToTocLabel.get(key) || htmlTitle || `Chapter ${chapters.length + 1}`;
-		chapters.push({
-			title: chapterTitle,
+		return {
+			title:
+				hrefToTocLabel.get(key) || htmlTitle || `Chapter ${spineIndex + 1}`,
 			href: item.href,
 			text,
-			wordCount: countWords(text),
+		};
+	});
+
+	const chapters: BookChapter[] = [];
+	const chapterTexts: string[] = [];
+	for (const parsed of spineChapters) {
+		if (!parsed) continue;
+		chapters.push({
+			title: parsed.title,
+			href: parsed.href,
+			text: parsed.text,
+			wordCount: countWords(parsed.text),
 		});
-		chapterTexts.push(text);
+		chapterTexts.push(parsed.text);
 	}
 
 	if (chapters.length === 0)

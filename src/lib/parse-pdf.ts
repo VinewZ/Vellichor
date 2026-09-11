@@ -8,6 +8,7 @@ import {
 	formatFileSizeMB,
 	formatWordCount,
 } from "./book";
+import { mapPool } from "./map-pool";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -103,10 +104,17 @@ export async function parsePdf(file: File): Promise<ParsedBook> {
 	try {
 		const pageCount = pdf.numPages;
 
+		// Metadata and outline only need the document proxy: fetch both
+		// concurrently with page text extraction instead of serially.
+		const metadataPromise = pdf.getMetadata().catch(() => null);
+		const outlinePromise: Promise<OutlineItem[] | null> = pdf
+			.getOutline()
+			.catch(() => null);
+
 		let title = "";
 		let author = "";
 		try {
-			const metadata = await pdf.getMetadata();
+			const metadata = await metadataPromise;
 			const info = (metadata?.info ?? {}) as Record<string, unknown>;
 			if (typeof info.Title === "string") title = info.Title;
 			if (typeof info.Author === "string") author = info.Author;
@@ -115,21 +123,23 @@ export async function parsePdf(file: File): Promise<ParsedBook> {
 			author = "";
 		}
 
-		const pageTexts: string[] = [];
-		for (let i = 1; i <= pageCount; i++) {
-			const page = await pdf.getPage(i);
-			const content = await page.getTextContent();
-			const text = content.items
-				.map((item) => {
-					if (typeof item === "object" && item !== null && "str" in item) {
-						return (item as { str: string }).str;
-					}
-					return "";
-				})
-				.join(" ");
-			pageTexts.push(text);
-			page.cleanup();
-		}
+		const pageNumbers = Array.from({ length: pageCount }, (_, i) => i + 1);
+		const pageTexts = await mapPool(pageNumbers, 4, async (pageNumber) => {
+			const page = await pdf.getPage(pageNumber);
+			try {
+				const content = await page.getTextContent();
+				return content.items
+					.map((item) => {
+						if (typeof item === "object" && item !== null && "str" in item) {
+							return (item as { str: string }).str;
+						}
+						return "";
+					})
+					.join(" ");
+			} finally {
+				page.cleanup();
+			}
+		});
 
 		const fullText = pageTexts
 			.join("\n\n")
@@ -138,7 +148,7 @@ export async function parsePdf(file: File): Promise<ParsedBook> {
 
 		let toc: TocEntry[] = [];
 		try {
-			const outline = (await pdf.getOutline()) as OutlineItem[] | null;
+			const outline = (await outlinePromise) as OutlineItem[] | null;
 			if (outline && outline.length > 0) {
 				await flattenOutline(pdf, outline, 0, toc);
 			}

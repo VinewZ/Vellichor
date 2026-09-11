@@ -6,7 +6,7 @@ import {
 	Square,
 	Trash2,
 } from "lucide-react";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useBook } from "@/hooks/useBook";
 import { useChapterAudio } from "@/hooks/useChapterAudio";
 import { useChapterSelection } from "@/hooks/useChapterSelection";
@@ -148,20 +148,25 @@ export function Mixer() {
 		exportM4b,
 	} = useChapterAudio();
 
-	const selectedIndices = [...selected].sort((a, b) => a - b);
-	const canGenerate =
-		!!book && selectedIndices.length > 0 && voice !== "" && !isGenerating;
-	const hint = !book
-		? "Upload a book to begin"
-		: selectedIndices.length === 0
-			? "Select chapters in Chapter Scope"
-			: voice === ""
-				? "Choose a voice in step 03"
-				: isGenerating
-					? `Rendering… ${doneCount} of ${runIndices.length} done`
-					: `Ready — ${selectedIndices.length} chapter(s) selected`;
-	const canExport = !!book && doneCount > 0 && !isGenerating && !exporting;
-	const canClear = !!book && !isGenerating && runIndices.length > 0;
+	const mixerState = useMemo(() => {
+		const selectedIndices = [...selected].sort((a, b) => a - b);
+		const canGenerate =
+			!!book && selectedIndices.length > 0 && voice !== "" && !isGenerating;
+		const hint = !book
+			? "Upload a book to begin"
+			: selectedIndices.length === 0
+				? "Select chapters in Chapter Scope"
+				: voice === ""
+					? "Choose a voice in step 03"
+					: isGenerating
+						? `Rendering… ${doneCount} of ${runIndices.length} done`
+						: `Ready — ${selectedIndices.length} chapter(s) selected`;
+		const canExport = !!book && doneCount > 0 && !isGenerating && !exporting;
+		const canClear = !!book && !isGenerating && runIndices.length > 0;
+		return { selectedIndices, canGenerate, hint, canExport, canClear };
+	}, [book, selected, voice, isGenerating, doneCount, runIndices, exporting]);
+	const { selectedIndices, canGenerate, hint, canExport, canClear } =
+		mixerState;
 
 	return (
 		<section className="min-w-0 overflow-x-hidden border-2 border-outline bg-background p-6 shadow-section">
@@ -196,6 +201,7 @@ export function Mixer() {
 					{error}
 				</p>
 			) : null}
+			<div></div>
 			{selectedIndices.length > 0 && book ? (
 				<div className="mb-4 flex max-h-72 min-w-0 flex-col gap-2 overflow-y-auto overflow-x-hidden pr-1">
 					{selectedIndices.map((index) => (
@@ -215,7 +221,16 @@ export function Mixer() {
 						/>
 					))}
 				</div>
-			) : null}
+			) : (
+				<div className="my-8 border-2 border-dashed border-outline p-6 text-center">
+					<p className="font-bold font-headline text-sm uppercase">
+						No chapters yet
+					</p>
+					<p className="mt-1 font-mono text-[11px] text-on-surface-variant">
+						Upload a .PDF or .EPUB to list its chapters here.
+					</p>
+				</div>
+			)}
 			<div className="flex items-center gap-3">
 				<Button variant="neutral" disabled={!canExport} onClick={exportM4b}>
 					{exporting ? "Exporting…" : "Export .M4B"}

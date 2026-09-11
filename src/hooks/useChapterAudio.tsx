@@ -53,6 +53,10 @@ const ChapterAudioContext = createContext<ChapterAudioContextValue | null>(
 	null,
 );
 
+const POLL_BASE_MS = 1000;
+const POLL_MAX_MS = 4000;
+const POLL_STALL_TICKS = 3;
+
 function fileUrl(fingerprint: string, index: number): string {
 	return `/api/files?fingerprint=${encodeURIComponent(fingerprint)}&chapter=${index}`;
 }
@@ -79,14 +83,24 @@ export function ChapterAudioProvider({
 	);
 	const pollRef = useRef<number | null>(null);
 	const jobIdRef = useRef<string | null>(null);
+	const pollTickRef = useRef<(() => void) | null>(null);
+	const pollInflightRef = useRef(false);
+	const pollDelayRef = useRef(POLL_BASE_MS);
+	const pollStallRef = useRef(0);
+	const pollLastDoneRef = useRef(0);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 
 	const stopPolling = useCallback(() => {
 		if (pollRef.current !== null) {
-			window.clearInterval(pollRef.current);
+			window.clearTimeout(pollRef.current);
 			pollRef.current = null;
 		}
 		jobIdRef.current = null;
+		pollTickRef.current = null;
+		pollInflightRef.current = false;
+		pollDelayRef.current = POLL_BASE_MS;
+		pollStallRef.current = 0;
+		pollLastDoneRef.current = 0;
 		setIsGenerating(false);
 	}, []);
 
@@ -136,6 +150,21 @@ export function ChapterAudioProvider({
 
 	useEffect(() => stopPolling, [stopPolling]);
 
+	// Returning to a hidden-then-visible tab refreshes state immediately
+	// instead of waiting out the paused poll cadence.
+	useEffect(() => {
+		const onVisibilityChange = () => {
+			if (document.visibilityState !== "visible") return;
+			if (!jobIdRef.current || !pollTickRef.current) return;
+			if (pollRef.current !== null) window.clearTimeout(pollRef.current);
+			pollRef.current = null;
+			pollTickRef.current();
+		};
+		document.addEventListener("visibilitychange", onVisibilityChange);
+		return () =>
+			document.removeEventListener("visibilitychange", onVisibilityChange);
+	}, []);
+
 	const applySnapshot = useCallback(
 		(snap: JobSnapshot, fp: string) => {
 			setJobs((prev) =>
@@ -167,20 +196,57 @@ export function ChapterAudioProvider({
 			stopPolling();
 			jobIdRef.current = jobId;
 			setIsGenerating(true);
+			const schedule = (delay: number) => {
+				if (pollRef.current !== null) window.clearTimeout(pollRef.current);
+				pollRef.current = window.setTimeout(tick, delay);
+			};
 			const tick = () => {
+				pollRef.current = null;
+				if (jobIdRef.current !== jobId) return;
+				// Hidden tab: no network, re-check on the base cadence.
+				if (document.hidden) {
+					schedule(POLL_BASE_MS);
+					return;
+				}
+				// Slow response still in flight: skip this tick, don't stack.
+				if (pollInflightRef.current) {
+					schedule(pollDelayRef.current);
+					return;
+				}
+				pollInflightRef.current = true;
 				fetch(`/api/render?id=${encodeURIComponent(jobId)}`)
 					.then((res) => {
 						if (!res.ok) throw new Error(`Render status failed: ${res.status}`);
 						return res.json() as Promise<JobSnapshot>;
 					})
-					.then((snap) => applySnapshot(snap, fp))
+					.then((snap) => {
+						const done = snap.chapters.reduce((n, c) => n + c.doneChunks, 0);
+						if (done > pollLastDoneRef.current) {
+							pollLastDoneRef.current = done;
+							pollStallRef.current = 0;
+							pollDelayRef.current = POLL_BASE_MS;
+						} else {
+							pollStallRef.current += 1;
+							pollDelayRef.current = Math.min(
+								POLL_MAX_MS,
+								POLL_BASE_MS *
+									2 ** Math.floor(pollStallRef.current / POLL_STALL_TICKS),
+							);
+						}
+						applySnapshot(snap, fp);
+						// applySnapshot stops polling once the job leaves "rendering".
+						if (jobIdRef.current === jobId) schedule(pollDelayRef.current);
+					})
 					.catch((e: unknown) => {
 						setError(e instanceof Error ? e.message : "Render status failed");
 						stopPolling();
+					})
+					.finally(() => {
+						pollInflightRef.current = false;
 					});
 			};
+			pollTickRef.current = tick;
 			tick();
-			pollRef.current = window.setInterval(tick, 1000);
 		},
 		[applySnapshot, stopPolling],
 	);
@@ -190,9 +256,10 @@ export function ChapterAudioProvider({
 			if (!book || !fingerprint) return;
 			const snapshot = { model, voice, speed, volume, format };
 			setError(null);
+			const indexSet = new Set(indices);
 			setJobs((prev) =>
 				prev.map((job, i) =>
-					indices.includes(i)
+					indexSet.has(i)
 						? {
 								...job,
 								status: "queued" as const,
@@ -352,15 +419,17 @@ export function ChapterAudioProvider({
 				if (!isAttachableCoverMime(blob.type || book.coverMime))
 					return undefined;
 				if (blob.size === 0 || blob.size > 5 * 1024 * 1024) return undefined;
-				const buf = await blob.arrayBuffer();
-				const bytes = new Uint8Array(buf);
-				let binary = "";
-				const chunk = 0x8000;
-				for (let i = 0; i < bytes.length; i += chunk) {
-					binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-				}
+				const dataUrl: string = await new Promise((resolve, reject) => {
+					const reader = new FileReader();
+					reader.onerror = () =>
+						reject(reader.error ?? new Error("Could not read cover"));
+					reader.onload = () => resolve(reader.result as string);
+					reader.readAsDataURL(blob);
+				});
+				const dataBase64 = dataUrl.split(",", 2)[1] ?? "";
+				if (!dataBase64) return undefined;
 				return {
-					dataBase64: btoa(binary),
+					dataBase64,
 					mime: blob.type || (book.coverMime as string),
 				};
 			} catch {

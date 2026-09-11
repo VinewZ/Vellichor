@@ -13,6 +13,7 @@ interface BookContextValue {
 	isParsing: boolean;
 	error: string | null;
 	parseFile: (file: File | undefined) => void;
+	preloadParsers: () => void;
 	clearBook: () => void;
 }
 
@@ -63,6 +64,13 @@ export function BookProvider({ children }: { children: React.ReactNode }) {
 			});
 	}, []);
 
+	// Warm the parser chunks (hover/focus on the dropzone) so parsing
+	// starts instantly on drop. Module graph caches the result.
+	const preloadParsers = useCallback(() => {
+		void import("@/lib/parse-pdf");
+		void import("@/lib/parse-epub");
+	}, []);
+
 	const clearBook = useCallback(() => {
 		setBook((prev) => {
 			revokeCoverUrl(prev?.coverUrl);
@@ -72,8 +80,8 @@ export function BookProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	const value = useMemo(
-		() => ({ book, isParsing, error, parseFile, clearBook }),
-		[book, isParsing, error, parseFile, clearBook],
+		() => ({ book, isParsing, error, parseFile, preloadParsers, clearBook }),
+		[book, isParsing, error, parseFile, preloadParsers, clearBook],
 	);
 
 	return <BookContext.Provider value={value}>{children}</BookContext.Provider>;

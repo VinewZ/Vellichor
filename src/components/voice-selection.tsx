@@ -36,12 +36,15 @@ export function VoiceSelection() {
 		[voicesQuery.data],
 	);
 
-	const activeCountry =
-		countries.length === 0
-			? selectedCountry
-			: countries.includes(selectedCountry)
+	const activeCountry = useMemo(
+		() =>
+			countries.length === 0
 				? selectedCountry
-				: (countries[0] ?? selectedCountry);
+				: countries.includes(selectedCountry)
+					? selectedCountry
+					: (countries[0] ?? selectedCountry),
+		[countries, selectedCountry],
+	);
 
 	const visibleVoices = useMemo(() => {
 		const group = voicesQuery.data?.byCountry.find(
