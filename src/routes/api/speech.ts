@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { kokoroBaseUrl } from "@/lib/server/kokoro";
+import { kokoroAuthHeaders, kokoroBaseUrl } from "@/lib/server/kokoro";
 
 export const Route = createFileRoute("/api/speech")({
 	server: {
@@ -26,7 +26,10 @@ export const Route = createFileRoute("/api/speech")({
 				try {
 					res = await fetch(`${baseUrl}/v1/audio/speech`, {
 						method: "POST",
-						headers: { "Content-Type": "application/json" },
+						headers: {
+							"Content-Type": "application/json",
+							...kokoroAuthHeaders(),
+						},
 						body: JSON.stringify(body),
 					});
 				} catch (error) {
@@ -39,6 +42,12 @@ export const Route = createFileRoute("/api/speech")({
 					);
 				}
 
+				if (res.status === 401) {
+					return Response.json(
+						{ error: "Kokoro rejected the API key (401) — check KOKORO_API_KEY" },
+						{ status: 502 },
+					);
+				}
 				if (!res.ok) {
 					let detail: unknown = null;
 					try {

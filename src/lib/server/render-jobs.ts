@@ -3,7 +3,7 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { chunkText, voiceIdToLocale } from "@/lib/chapter-audio";
-import { kokoroBaseUrl } from "@/lib/server/kokoro";
+import { kokoroAuthHeaders, kokoroBaseUrl } from "@/lib/server/kokoro";
 import { buildSpeechRequest, type SynthesisSnapshot } from "@/lib/synthesis";
 
 const execFileAsync = promisify(execFile);
@@ -127,10 +127,12 @@ async function postChunk(
 ): Promise<Buffer> {
 	const res = await fetch(`${baseUrl}/v1/audio/speech`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", ...kokoroAuthHeaders() },
 		body: JSON.stringify(body),
 		signal,
 	});
+	if (res.status === 401)
+		throw new Error("Kokoro rejected the API key (401) — check KOKORO_API_KEY");
 	if (!res.ok) throw new Error(`Kokoro responded with status ${res.status}`);
 	return Buffer.from(await res.arrayBuffer());
 }

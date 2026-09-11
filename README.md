@@ -53,6 +53,7 @@ docker compose up --build
 
 - `KOKORO_BASE_URL` must reach Kokoro **from inside the container**: `http://host.docker.internal:8880` on Docker Desktop, or your host's LAN IP (e.g. `http://192.168.1.10:8880`) on Linux. `127.0.0.1` points at the container itself and will fail.
 - `ffmpeg` + `ffprobe` are baked into the image; no host install needed.
+- If your Kokoro requires auth, copy its key into `.env` as `KOKORO_API_KEY` (stays server-side, never sent to the browser).
 - Renders persist in the `vellichor-data` volume (`DATA_DIR=/data` in the container).
 - `PORT` (default `3000`) maps host → container.
 

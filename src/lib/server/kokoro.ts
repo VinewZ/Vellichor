@@ -7,3 +7,9 @@ export function kokoroBaseUrl(): string {
 	}
 	return raw;
 }
+
+export function kokoroAuthHeaders(): Record<string, string> {
+	const key = process.env.KOKORO_API_KEY?.trim();
+	if (!key) return {};
+	return { Authorization: `Bearer ${key}` };
+}
