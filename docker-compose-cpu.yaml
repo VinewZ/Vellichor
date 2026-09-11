@@ -1,0 +1,30 @@
+# Vellichor + Kokoro (CPU). Slower inference, no GPU needed.
+services:
+  vellichor:
+    image: vinewz/vellichor:latest@sha256:cb9d3c586cc38448d140fb4b5ded7051b1a6586798ad9512047ded314569d47d
+    environment:
+      # Same-compose DNS; set only for an external Kokoro.
+      KOKORO_BASE_URL: ${KOKORO_BASE_URL:-http://kokoro:8880}
+      KOKORO_API_KEY: ${KOKORO_API_KEY:-}
+      VELLICHOR_DATA_DIR: /data
+      PORT: ${VELLICHOR_PORT:-5257}
+    ports:
+      - "${VELLICHOR_PORT:-5257}:${VELLICHOR_PORT:-5257}"
+    volumes:
+      - ./data/vellichor:/data
+    depends_on:
+      - kokoro
+    restart: unless-stopped
+
+  kokoro:
+    image: hwdsl2/kokoro-server
+    container_name: kokoro
+    restart: always
+    environment:
+      KOKORO_API_KEY: ${KOKORO_API_KEY:-}
+      #KOKORO_VOICE: af_heart
+      #KOKORO_LANG_CODE: a
+    ports:
+      - "8880:8880/tcp" # For a host-based reverse proxy, change to "127.0.0.1:8880:8880/tcp"
+    volumes:
+      - ./data/kokoro:/var/lib/kokoro

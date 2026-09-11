@@ -3,6 +3,7 @@ dist
 data
 .git
 .env
+kokoro.env
 *.local
 .tanstack
 .vite
