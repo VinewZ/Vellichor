@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { chunkText, voiceIdToLocale } from "@/lib/chapter-audio";
+import { kokoroBaseUrl } from "@/lib/server/kokoro";
 import { buildSpeechRequest, type SynthesisSnapshot } from "@/lib/synthesis";
 
 const execFileAsync = promisify(execFile);
@@ -154,7 +155,7 @@ async function probeDurationSec(filePath: string): Promise<number | undefined> {
 }
 
 async function runJob(job: Job, input: StartRenderInput): Promise<void> {
-	const baseUrl = process.env.KOKORO_BASE_URL ?? "http://127.0.0.1:8880";
+	const baseUrl = kokoroBaseUrl();
 	const locale = voiceIdToLocale(input.voice);
 	for (const chapter of job.chapters) {
 		if (job.controller.signal.aborted) break;
@@ -210,6 +211,8 @@ async function runJob(job: Job, input: StartRenderInput): Promise<void> {
 }
 
 export async function startRender(input: StartRenderInput): Promise<string> {
+	// Fail fast before creating any state: runJob throws unhandled otherwise.
+	kokoroBaseUrl();
 	for (const job of jobs.values()) {
 		if (job.status === "rendering") {
 			throw new Error("Another render is already running");

@@ -1,12 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-
-const FALLBACK_KOKORO_BASE_URL = "http://127.0.0.1:8880";
+import { kokoroBaseUrl } from "@/lib/server/kokoro";
 
 export const Route = createFileRoute("/api/speech")({
 	server: {
 		handlers: {
 			POST: async ({ request }: { request: Request }) => {
-				const baseUrl = process.env.KOKORO_BASE_URL ?? FALLBACK_KOKORO_BASE_URL;
+				let baseUrl: string;
+				try {
+					baseUrl = kokoroBaseUrl();
+				} catch (e) {
+					return Response.json(
+						{ error: e instanceof Error ? e.message : "KOKORO_BASE_URL is not set" },
+						{ status: 500 },
+					);
+				}
 
 				let body: unknown;
 				try {

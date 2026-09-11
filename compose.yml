@@ -1,0 +1,13 @@
+services:
+  vellichor:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - vellichor-data:/data
+    restart: unless-stopped
+
+volumes:
+  vellichor-data:
