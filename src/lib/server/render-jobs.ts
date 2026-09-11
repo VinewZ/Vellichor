@@ -59,7 +59,7 @@ interface Job extends JobSnapshot {
 const jobs = new Map<string, Job>();
 
 function dataDir(): string {
-	return process.env.DATA_DIR ?? join(process.cwd(), "data");
+	return process.env.VELLICHOR_DATA_DIR ?? join(process.cwd(), "data");
 }
 
 export function sanitizeFingerprint(raw: unknown): string {
@@ -383,11 +383,11 @@ export async function readManifest(fingerprint: string): Promise<{
 }
 
 function ffmpegPath(): string {
-	return process.env.FFMPEG_PATH ?? "ffmpeg";
+	return process.env.VELLICHOR_FFMPEG_PATH ?? "ffmpeg";
 }
 
 function ffprobePath(): string {
-	return process.env.FFPROBE_PATH ?? "ffprobe";
+	return process.env.VELLICHOR_FFPROBE_PATH ?? "ffprobe";
 }
 
 function escapeMeta(value: string): string {

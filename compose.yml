@@ -1,13 +1,50 @@
 services:
   vellichor:
     build: .
-    env_file:
-      - .env
+    environment:
+      KOKORO_BASE_URL: ${KOKORO_BASE_URL:?Set KOKORO_BASE_URL in .env}
+      KOKORO_API_KEY: ${KOKORO_API_KEY:-}
+      VELLICHOR_DATA_DIR: /data
+      # PORT is read by the web framework itself, so the VELLICHOR_
+      # value is translated here at the compose boundary.
+      PORT: ${VELLICHOR_PORT:-3000}
     ports:
-      - "${PORT:-3000}:3000"
+      - "${VELLICHOR_PORT:-3000}:3000"
     volumes:
-      - vellichor-data:/data
+      - ./data/vellichor:/data
+    depends_on:
+      - kokoro
     restart: unless-stopped
 
-volumes:
-  vellichor-data:
+  kokoro:
+    image: hwdsl2/kokoro-server:cuda
+    container_name: kokoro-cuda
+    restart: always
+    ports:
+      - "8880:8880/tcp" # For a host-based reverse proxy, change to "127.0.0.1:8880:8880/tcp"
+    volumes:
+      - ./data/kokoro:/var/lib/kokoro
+      - ./kokoro.env:/kokoro.env:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+# ---------------------------------------------------------------------------
+# Non-CUDA Kokoro. Enable ONLY one Kokoro at a time: both publish host
+# port 8880, so running both is a port conflict. To switch: comment out
+# the `kokoro` service above and uncomment the block below. The service
+# name stays `kokoro`, so Vellichor needs no other changes.
+# ---------------------------------------------------------------------------
+#  kokoro:
+#    image: hwdsl2/kokoro-server
+#    container_name: kokoro
+#    restart: always
+#    ports:
+#      - "8880:8880/tcp"  # For a host-based reverse proxy, change to "127.0.0.1:8880:8880/tcp"
+#    volumes:
+#      - ./data/kokoro:/var/lib/kokoro
+#      - ./kokoro.env:/kokoro.env:ro

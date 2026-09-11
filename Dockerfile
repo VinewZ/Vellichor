@@ -18,7 +18,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/public ./public
 
 ENV NODE_ENV=production \
-	DATA_DIR=/data \
+	VELLICHOR_DATA_DIR=/data \
 	PORT=3000 \
 	HOST=0.0.0.0
 

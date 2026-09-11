@@ -35,27 +35,29 @@ bun run dev   # vite dev --port 3000
 Requires for render/export:
 
 - [Kokoro TTS](https://github.com/hwdsl2/docker-kokoro) reachable at `KOKORO_BASE_URL` (**required**, no default — the app errors clearly without it).
-- `ffmpeg` + `ffprobe` on PATH (or via `FFMPEG_PATH` / `FFPROBE_PATH`).
+- `ffmpeg` + `ffprobe` on PATH (or via `VELLICHOR_FFMPEG_PATH` / `VELLICHOR_FFPROBE_PATH`).
 
 ```bash
 cp .env.example .env   # set KOKORO_BASE_URL
 KOKORO_BASE_URL=http://127.0.0.1:8880 \
-DATA_DIR=./data \
+VELLICHOR_DATA_DIR=./data \
 bun run dev
 ```
 
 ## Docker
 
+One compose file runs Vellichor + Kokoro (CUDA by default, CPU variant commented in `compose.yml` — enable only one, both publish host port `8880`).
+
 ```bash
-cp .env.example .env   # set KOKORO_BASE_URL to your Kokoro server
+cp .env.example .env   # KOKORO_BASE_URL=http://kokoro:8880 already set for compose
 docker compose up --build
 ```
 
-- `KOKORO_BASE_URL` must reach Kokoro **from inside the container**: `http://host.docker.internal:8880` on Docker Desktop, or your host's LAN IP (e.g. `http://192.168.1.10:8880`) on Linux. `127.0.0.1` points at the container itself and will fail.
-- `ffmpeg` + `ffprobe` are baked into the image; no host install needed.
-- If your Kokoro requires auth, copy its key into `.env` as `KOKORO_API_KEY` (stays server-side, never sent to the browser).
-- Renders persist in the `vellichor-data` volume (`DATA_DIR=/data` in the container).
-- `PORT` (default `3000`) maps host → container.
+- Services talk over the compose network: Vellichor reaches Kokoro at `http://kokoro:8880`. Pointing at an external Kokoro instead? Set `KOKORO_BASE_URL` to `http://host.docker.internal:8880` (Docker Desktop) or your host's LAN IP (Linux). `127.0.0.1` points at the Vellichor container itself and will fail.
+- One `.env` for the stack: `KOKORO_*` shared, `VELLICHOR_*` for Vellichor. If Kokoro auth is on, `KOKORO_API_KEY` in `.env` must equal the key in `kokoro.env` (stays server-side, never sent to the browser).
+- Data lives in `./data`: `./data/vellichor` (renders, manifests) + `./data/kokoro` (model, voices). If containers can't write there (root-owned bind dirs on Linux): `sudo chown -R $(id -u):$(id -g) data`.
+- `ffmpeg` + `ffprobe` are baked into the Vellichor image; no host install needed.
+- Kokoro needs ~30–60s to load its model after start; `/api/voices` returns 502 "unreachable" until then — normal, just retry.
 
 ## Building For Production
 
