@@ -34,7 +34,7 @@ export function ThemeSelector({ className }: { className?: string }) {
 						aria-pressed={active}
 						onClick={() => setTheme(value)}
 						className={cn(
-							"flex cursor-pointer items-center gap-1.5 rounded-base px-3 py-1.5 text-sm font-base transition-colors",
+							"flex cursor-pointer items-center gap-1.5 rounded-base px-3 py-1.5 font-base text-sm transition-colors",
 							active
 								? "bg-main text-main-foreground"
 								: "text-foreground hover:bg-main/15",

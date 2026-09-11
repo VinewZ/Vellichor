@@ -45,10 +45,10 @@ export function BookUpload() {
 	}
 
 	return (
-		<section className="border-2 border-outline p-6 shadow-section relative bg-background">
-			<div className="flex items-center justify-between pb-4 border-b-2 border-outline mb-6">
+		<section className="relative border-2 border-outline bg-background p-6 shadow-section">
+			<div className="mb-6 flex items-center justify-between border-outline border-b-2 pb-4">
 				<div className="flex items-center gap-2">
-					<h2 className="font-headline font-bold text-lg uppercase tracking-tight">
+					<h2 className="font-bold font-headline text-lg uppercase tracking-tight">
 						01. Source Document &amp; Parsing.
 					</h2>
 				</div>
@@ -60,13 +60,13 @@ export function BookUpload() {
 					{isParsing ? "Parsing…" : "Upload File"}
 				</Button>
 			</div>
-			<div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-				<div className="md:col-span-4 flex flex-col items-center justify-center p-3 border-2 border-outline">
+			<div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+				<div className="flex flex-col items-center justify-center border-2 border-outline p-3 md:col-span-4">
 					{coverUrl ? (
 						<img
 							src={coverUrl}
 							alt={`${book?.title ?? "Book"} cover`}
-							className="max-h-64 w-auto object-contain border border-outline"
+							className="max-h-64 w-auto border border-outline object-contain"
 						/>
 					) : isUploaded ? (
 						<Book size={100} />
@@ -74,12 +74,12 @@ export function BookUpload() {
 						<Upload size={100} />
 					)}
 				</div>
-				<div className="md:col-span-8 flex flex-col justify-between gap-4">
+				<div className="flex flex-col justify-between gap-4 md:col-span-8">
 					<div>
-						<div className="flex flex-wrap items-center gap-2 mb-2">
+						<div className="mb-2 flex flex-wrap items-center gap-2">
 							<span
 								className={cn(
-									"px-2 py-0.5 text-on-tertiary text-[10px] font-headline font-bold uppercase border border-outline",
+									"border border-outline px-2 py-0.5 font-bold font-headline text-[10px] text-on-tertiary uppercase",
 									book?.fileFormat && "bg-emerald-800",
 								)}
 							>
@@ -88,7 +88,7 @@ export function BookUpload() {
 							{book && book.toc.length > 0 ? (
 								<span
 									className={cn(
-										"px-2 py-0.5 text-[10px] font-headline font-bold uppercase border border-outline",
+										"border border-outline px-2 py-0.5 font-bold font-headline text-[10px] uppercase",
 										book.toc && "bg-emerald-800",
 									)}
 								>
@@ -96,21 +96,21 @@ export function BookUpload() {
 								</span>
 							) : null}
 						</div>
-						<h3 className="font-headline font-bold text-xl uppercase tracking-tight">
+						<h3 className="font-bold font-headline text-xl uppercase tracking-tight">
 							{book ? book.title : "No file loaded"}
 						</h3>
-						<p className="text-xs text-on-surface-variant font-mono mt-0.5 capitalize">
+						<p className="mt-0.5 font-mono text-on-surface-variant text-xs capitalize">
 							{book
 								? `Size: ${book.fileSizeMB} MB • ${book.author}${book.publisher ? ` • ${book.publisher}` : ""}${book.date ? ` ${book.date}` : ""}`
 								: "Select a .PDF or .EPUB to extract text + TOC"}
 						</p>
 					</div>
 					<div className="grid grid-cols-3 gap-2 py-2">
-						<div className="p-2.5 border-2 border-outline">
-							<span className="block text-[10px] font-headline uppercase font-bold text-on-surface-variant">
+						<div className="border-2 border-outline p-2.5">
+							<span className="block font-bold font-headline text-[10px] text-on-surface-variant uppercase">
 								{isEpub ? "Chapters" : "Pages"}
 							</span>
-							<span className="font-headline font-bold text-lg text-on-surface">
+							<span className="font-bold font-headline text-lg text-on-surface">
 								{book
 									? isEpub
 										? book.chapterCount
@@ -118,26 +118,26 @@ export function BookUpload() {
 									: "—"}
 							</span>
 						</div>
-						<div className="p-2.5 border-2 border-outline">
-							<span className="block text-[10px] font-headline uppercase font-bold text-on-surface-variant">
+						<div className="border-2 border-outline p-2.5">
+							<span className="block font-bold font-headline text-[10px] text-on-surface-variant uppercase">
 								Word Count
 							</span>
-							<span className="font-headline font-bold text-lg text-on-surface">
+							<span className="font-bold font-headline text-lg text-on-surface">
 								{book ? book.wordCountLabel : "—"}
 							</span>
 						</div>
-						<div className="p-2.5 border-2 border-outline">
-							<span className="block text-[10px] font-headline uppercase font-bold text-secondary">
+						<div className="border-2 border-outline p-2.5">
+							<span className="block font-bold font-headline text-[10px] text-secondary uppercase">
 								Est. Audio
 							</span>
-							<span className="font-headline font-bold text-lg text-secondary">
+							<span className="font-bold font-headline text-lg text-secondary">
 								{book ? audioLabel : "—"}
 							</span>
 						</div>
 					</div>
 					<label
 						htmlFor="book-upload"
-						className="border-2 border-dashed border-outline p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-colors"
+						className="flex cursor-pointer flex-col items-center justify-center border-2 border-outline border-dashed p-3.5 text-center transition-colors"
 					>
 						<input
 							ref={inputRef}
@@ -151,11 +151,11 @@ export function BookUpload() {
 							}}
 						/>
 
-						<span className="material-symbols-outlined text-xl text-on-surface mb-1">
+						<span className="material-symbols-outlined mb-1 text-on-surface text-xl">
 							upload_file
 						</span>
 
-						<p className="text-xs font-headline font-bold uppercase">
+						<p className="font-bold font-headline text-xs uppercase">
 							{isParsing
 								? "Parsing file…"
 								: isUploaded
@@ -163,14 +163,14 @@ export function BookUpload() {
 									: "Upload .PDF or .EPUB to parse"}
 						</p>
 
-						<p className="text-[10px] text-on-surface-variant font-mono">
+						<p className="font-mono text-[10px] text-on-surface-variant">
 							Supports .EPUB, .PDF
 						</p>
 
 						{error ? (
 							<p
 								role="alert"
-								className="text-[11px] font-mono text-red-600 mt-1"
+								className="mt-1 font-mono text-[11px] text-red-600"
 							>
 								{error}
 							</p>

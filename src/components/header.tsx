@@ -2,8 +2,8 @@ import { ThemeSelector } from "./theme-selector";
 
 export function Header() {
 	return (
-		<header className="flex items-center justify-between mb-12 border-b p-8 bg-background dark:bg-secondary-background">
-			<h1 className="text-4xl font-bold uppercase">
+		<header className="mb-12 flex items-center justify-between border-b bg-background p-8 dark:bg-secondary-background">
+			<h1 className="font-bold text-4xl uppercase">
 				Vellichor
 				<br />
 				EPUB / PDF to Audiobook

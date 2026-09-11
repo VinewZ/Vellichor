@@ -33,27 +33,27 @@ const ChapterRow = memo(function ChapterRow({
 		<button
 			type="button"
 			onClick={() => onToggle(index)}
-			className="flex w-full items-center gap-3 p-3 border-2 border-outline hover:bg-surface-container cursor-pointer transition-colors text-left [content-visibility:auto] [contain-intrinsic-size:auto_72px]"
+			className="flex w-full cursor-pointer items-center gap-3 border-2 border-outline p-3 text-left transition-colors [contain-intrinsic-size:auto_72px] [content-visibility:auto] hover:bg-surface-container"
 		>
 			<Checkbox
 				checked={checked}
 				onClick={(e) => e.stopPropagation()}
 				onCheckedChange={() => onToggle(index)}
 			/>
-			<div className="flex-1 min-w-0">
-				<div className="flex items-center justify-between gap-2 min-w-0">
+			<div className="min-w-0 flex-1">
+				<div className="flex min-w-0 items-center justify-between gap-2">
 					<span
-						className="font-headline font-bold text-xs uppercase truncate min-w-0 flex-1"
+						className="min-w-0 flex-1 truncate font-bold font-headline text-xs uppercase"
 						title={`Ch ${index + 1}: ${chapter.title}`}
 					>
 						Ch {index + 1}: {chapter.title}
 					</span>
-					<span className="font-mono text-[11px] font-bold text-secondary shrink-0 uppercase">
+					<span className="shrink-0 font-bold font-mono text-[11px] text-secondary uppercase">
 						{label}
 					</span>
 				</div>
 				<p
-					className="text-[11px] text-on-surface-variant font-mono truncate"
+					className="truncate font-mono text-[11px] text-on-surface-variant"
 					title={
 						chapter.href
 							? `${chapter.wordCount} words • ${chapter.href}`
@@ -108,17 +108,17 @@ export function Chapters() {
 	}, [book, jobs, selected, selectedAudioETA, speed]);
 
 	return (
-		<section className="border-2 border-outline p-6 shadow-section bg-background max-h-112 min-w-0 overflow-x-hidden">
-			<div className="flex items-center justify-between pb-4 border-b-2 border-outline mb-4">
-				<h2 className="font-headline font-bold text-lg uppercase tracking-tight">
+		<section className="max-h-112 min-w-0 overflow-x-hidden border-2 border-outline bg-background p-6 shadow-section">
+			<div className="mb-4 flex items-center justify-between border-outline border-b-2 pb-4">
+				<h2 className="font-bold font-headline text-lg uppercase tracking-tight">
 					02. Chapter Scope
 				</h2>
-				<span className="text-xs font-mono font-bold text-secondary">
+				<span className="font-bold font-mono text-secondary text-xs">
 					{selectedCount} of {totalCount} SELECTED
 				</span>
 			</div>
-			<div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-outline/30 text-xs font-headline font-bold uppercase">
-				<div className="flex flex-wrap items-center gap-2 min-w-0">
+			<div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-outline/30 border-b pb-3 font-bold font-headline text-xs uppercase">
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
 					<Button disabled={!book} onClick={selectAll}>
 						Select All
 					</Button>
@@ -127,24 +127,24 @@ export function Chapters() {
 						Deselect All
 					</Button>
 				</div>
-				<span className="text-[10px] font-mono text-on-surface-variant font-normal uppercase min-w-0 text-right wrap-break-word">
+				<span className="wrap-break-word min-w-0 text-right font-mono font-normal text-[10px] text-on-surface-variant uppercase">
 					EST. TOTAL: {totalLabel}
 				</span>
 			</div>
-			<div className="flex flex-col gap-2.5 max-h-68 overflow-y-auto overflow-x-hidden pr-1 min-w-0">
+			<div className="flex max-h-68 min-w-0 flex-col gap-2.5 overflow-y-auto overflow-x-hidden pr-1">
 				{isParsing ? (
 					[0, 1, 2, 3].map((i) => (
 						<div
 							key={i}
-							className="h-18 border-2 border-outline animate-pulse"
+							className="h-18 animate-pulse border-2 border-outline"
 						/>
 					))
 				) : !book || book.chapters.length === 0 ? (
-					<div className="border-2 border-dashed border-outline p-6 text-center">
-						<p className="font-headline font-bold text-sm uppercase">
+					<div className="border-2 border-outline border-dashed p-6 text-center">
+						<p className="font-bold font-headline text-sm uppercase">
 							No chapters yet
 						</p>
-						<p className="text-[11px] font-mono text-on-surface-variant mt-1">
+						<p className="mt-1 font-mono text-[11px] text-on-surface-variant">
 							Upload a .PDF or .EPUB to list its chapters here.
 						</p>
 					</div>

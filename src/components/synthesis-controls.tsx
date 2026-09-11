@@ -7,15 +7,15 @@ export function SynthesisControls() {
 		useSynthesis();
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t-2 border-outline p-4">
+		<div className="grid grid-cols-1 gap-4 border-outline border-t-2 p-4 pt-4 md:grid-cols-3">
 			<div>
-				<div className="flex justify-between text-xs font-headline font-bold uppercase mb-1.5">
+				<div className="mb-1.5 flex justify-between font-bold font-headline text-xs uppercase">
 					<label htmlFor="synth-speed">Speed</label>
 					<span className="font-mono text-secondary">{speed.toFixed(2)}x</span>
 				</div>
 				<input
 					id="synth-speed"
-					className="w-full accent-primary h-2 border border-outline appearance-none cursor-pointer"
+					className="h-2 w-full cursor-pointer appearance-none border border-outline accent-primary"
 					max="4"
 					min="0.25"
 					step="0.05"
@@ -23,14 +23,14 @@ export function SynthesisControls() {
 					value={speed}
 					onChange={(e) => setSpeed(Number(e.currentTarget.value))}
 				/>
-				<div className="flex justify-between text-[9px] font-mono text-on-surface-variant mt-1">
+				<div className="mt-1 flex justify-between font-mono text-[9px] text-on-surface-variant">
 					<span>0.25x</span>
 					<span>DEFAULT 1.00x</span>
 					<span>4.00x</span>
 				</div>
 			</div>
 			<div>
-				<div className="flex justify-between text-xs font-headline font-bold uppercase mb-1.5">
+				<div className="mb-1.5 flex justify-between font-bold font-headline text-xs uppercase">
 					<label htmlFor="synth-volume">Volume</label>
 					<span className="font-mono text-secondary">
 						{Math.round(volume * 100)}%
@@ -38,7 +38,7 @@ export function SynthesisControls() {
 				</div>
 				<input
 					id="synth-volume"
-					className="w-full accent-primary h-2 border border-outline appearance-none cursor-pointer"
+					className="h-2 w-full cursor-pointer appearance-none border border-outline accent-primary"
 					max="2"
 					min="0.1"
 					step="0.05"
@@ -46,14 +46,14 @@ export function SynthesisControls() {
 					value={volume}
 					onChange={(e) => setVolume(Number(e.currentTarget.value))}
 				/>
-				<div className="flex justify-between text-[9px] font-mono text-on-surface-variant mt-1">
+				<div className="mt-1 flex justify-between font-mono text-[9px] text-on-surface-variant">
 					<span>10%</span>
 					<span>DEFAULT 100%</span>
 					<span>200%</span>
 				</div>
 			</div>
 			<div>
-				<div className="flex justify-between text-xs font-headline font-bold uppercase mb-1.5">
+				<div className="mb-1.5 flex justify-between font-bold font-headline text-xs uppercase">
 					<label htmlFor="synth-format">Format</label>
 					<span className="font-mono text-secondary">
 						{format.toUpperCase()}
@@ -61,7 +61,7 @@ export function SynthesisControls() {
 				</div>
 				<select
 					id="synth-format"
-					className="w-full h-10 px-3 border-2 border-outline text-sm font-mono cursor-pointer"
+					className="h-10 w-full cursor-pointer border-2 border-outline px-3 font-mono text-sm"
 					value={format}
 					onChange={(e) => setFormat(e.currentTarget.value as ResponseFormat)}
 				>
@@ -71,7 +71,7 @@ export function SynthesisControls() {
 						</option>
 					))}
 				</select>
-				<p className="text-[9px] font-mono text-on-surface-variant mt-1">
+				<p className="mt-1 font-mono text-[9px] text-on-surface-variant">
 					SENT AS response_format ON EVERY PREVIEW + EXPORT
 				</p>
 			</div>

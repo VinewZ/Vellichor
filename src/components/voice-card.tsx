@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 
 export interface VoiceCardProps {
@@ -22,19 +21,17 @@ export const VoiceCard = memo(function VoiceCard({
 	onPreview,
 }: VoiceCardProps) {
 	return (
-		<div
-			className= "p-4 border-2 border-outline relative flex flex-col justify-between]"
-		>
+		<div className="justify-between] relative flex flex-col border-2 border-outline p-4">
 			<div>
-				<div className="flex items-start justify-between gap-2 mb-2">
-					<h4 className="font-headline font-bold text-sm uppercase">{id}</h4>
-					<span className="px-2 py-0.5 text-[10px] font-headline font-bold uppercase">
+				<div className="mb-2 flex items-start justify-between gap-2">
+					<h4 className="font-bold font-headline text-sm uppercase">{id}</h4>
+					<span className="px-2 py-0.5 font-bold font-headline text-[10px] uppercase">
 						{gender}
 					</span>
 				</div>
-				<p className="text-xs text-on-surface-variant mb-3">{description}</p>
+				<p className="mb-3 text-on-surface-variant text-xs">{description}</p>
 			</div>
-			<div className="flex items-center justify-between pt-2 border-t border-outline">
+			<div className="flex items-center justify-between border-outline border-t pt-2">
 				<Button
 					variant="neutral"
 					size="sm"

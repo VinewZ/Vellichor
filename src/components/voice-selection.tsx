@@ -57,12 +57,12 @@ export function VoiceSelection() {
 	}, [voicesQuery.data, activeCountry, query]);
 
 	return (
-		<section className="border-2 border-outline p-6 shadow-section bg-background">
-			<div className="flex items-center justify-between pb-4 border-b-2 border-outline mb-6">
-				<h2 className="font-headline font-bold text-lg uppercase tracking-tight">
+		<section className="border-2 border-outline bg-background p-6 shadow-section">
+			<div className="mb-6 flex items-center justify-between border-outline border-b-2 pb-4">
+				<h2 className="font-bold font-headline text-lg uppercase tracking-tight">
 					03. Choose Voice
 				</h2>
-				<span className="text-[10px] font-mono font-bold text-on-surface-variant uppercase">
+				<span className="font-bold font-mono text-[10px] text-on-surface-variant uppercase">
 					{voice === "" ? "No voice selected" : voice}
 				</span>
 			</div>
@@ -91,7 +91,7 @@ export function VoiceSelection() {
 				</div>
 
 				{previewError ? (
-					<p className="text-xs font-mono text-red-600">{previewError}</p>
+					<p className="font-mono text-red-600 text-xs">{previewError}</p>
 				) : null}
 
 				<Input
@@ -102,17 +102,17 @@ export function VoiceSelection() {
 				/>
 
 				{voicesQuery.isPending ? (
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+					<div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
 						{[0, 1, 2, 3].map((i) => (
 							<div
 								key={i}
-								className="h-32 border-2 border-outline animate-pulse"
+								className="h-32 animate-pulse border-2 border-outline"
 							/>
 						))}
 					</div>
 				) : voicesQuery.isError ? (
-					<div className="border-2 border-outline p-4 mb-4 text-sm">
-						<p className="font-bold uppercase text-xs mb-1">
+					<div className="mb-4 border-2 border-outline p-4 text-sm">
+						<p className="mb-1 font-bold text-xs uppercase">
 							Voices unavailable
 						</p>
 						<Button
@@ -124,11 +124,11 @@ export function VoiceSelection() {
 						</Button>
 					</div>
 				) : visibleVoices.length === 0 ? (
-					<p className="text-sm text-on-surface-variant py-8 text-center">
+					<p className="py-8 text-center text-on-surface-variant text-sm">
 						No voices match “{deferredFilter}” in {activeCountry}.
 					</p>
 				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 max-h-96 overflow-y-auto">
+					<div className="mb-4 grid max-h-96 grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
 						{visibleVoices.map((v) => (
 							<VoiceCard
 								key={v.id}
