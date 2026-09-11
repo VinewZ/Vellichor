@@ -45,7 +45,7 @@ export function BookUpload() {
 	}
 
 	return (
-		<section className="bg-surface-bright border-2 border-outline p-6 shadow-section relative">
+		<section className="border-2 border-outline p-6 shadow-section relative bg-background">
 			<div className="flex items-center justify-between pb-4 border-b-2 border-outline mb-6">
 				<div className="flex items-center gap-2">
 					<h2 className="font-headline font-bold text-lg uppercase tracking-tight">
@@ -61,7 +61,7 @@ export function BookUpload() {
 				</Button>
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-				<div className="md:col-span-4 flex flex-col items-center justify-center p-3 bg-surface-container border-2 border-outline">
+				<div className="md:col-span-4 flex flex-col items-center justify-center p-3 border-2 border-outline">
 					{coverUrl ? (
 						<img
 							src={coverUrl}
@@ -79,7 +79,7 @@ export function BookUpload() {
 						<div className="flex flex-wrap items-center gap-2 mb-2">
 							<span
 								className={cn(
-									"px-2 py-0.5 bg-tertiary text-on-tertiary text-[10px] font-headline font-bold uppercase border border-outline",
+									"px-2 py-0.5 text-on-tertiary text-[10px] font-headline font-bold uppercase border border-outline",
 									book?.fileFormat && "bg-emerald-800",
 								)}
 							>
@@ -88,7 +88,7 @@ export function BookUpload() {
 							{book && book.toc.length > 0 ? (
 								<span
 									className={cn(
-										"px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] font-headline font-bold uppercase border border-outline",
+										"px-2 py-0.5 text-[10px] font-headline font-bold uppercase border border-outline",
 										book.toc && "bg-emerald-800",
 									)}
 								>
@@ -106,7 +106,7 @@ export function BookUpload() {
 						</p>
 					</div>
 					<div className="grid grid-cols-3 gap-2 py-2">
-						<div className="p-2.5 bg-surface border-2 border-outline">
+						<div className="p-2.5 border-2 border-outline">
 							<span className="block text-[10px] font-headline uppercase font-bold text-on-surface-variant">
 								{isEpub ? "Chapters" : "Pages"}
 							</span>
@@ -118,7 +118,7 @@ export function BookUpload() {
 									: "—"}
 							</span>
 						</div>
-						<div className="p-2.5 bg-surface border-2 border-outline">
+						<div className="p-2.5 border-2 border-outline">
 							<span className="block text-[10px] font-headline uppercase font-bold text-on-surface-variant">
 								Word Count
 							</span>
@@ -126,7 +126,7 @@ export function BookUpload() {
 								{book ? book.wordCountLabel : "—"}
 							</span>
 						</div>
-						<div className="p-2.5 bg-surface border-2 border-outline">
+						<div className="p-2.5 border-2 border-outline">
 							<span className="block text-[10px] font-headline uppercase font-bold text-secondary">
 								Est. Audio
 							</span>
@@ -137,7 +137,7 @@ export function BookUpload() {
 					</div>
 					<label
 						htmlFor="book-upload"
-						className="border-2 border-dashed border-outline bg-surface-container-low p-3.5 text-center flex flex-col items-center justify-center cursor-pointer hover:bg-surface-container transition-colors"
+						className="border-2 border-dashed border-outline p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-colors"
 					>
 						<input
 							ref={inputRef}

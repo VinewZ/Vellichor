@@ -40,8 +40,8 @@ function applyTheme(resolved: ResolvedTheme) {
 
 export function ThemeProvider({
 	children,
-	defaultTheme = "system",
-	storageKey = "pagevoice-theme",
+	defaultTheme = "dark",
+	storageKey = "vellichor-theme",
 }: ThemeProviderProps) {
 	const [theme, setThemeState] = useState<Theme>(defaultTheme);
 	const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(

@@ -57,7 +57,7 @@ export function VoiceSelection() {
 	}, [voicesQuery.data, activeCountry, query]);
 
 	return (
-		<section className="bg-surface-bright border-2 border-outline p-6 shadow-section">
+		<section className="border-2 border-outline p-6 shadow-section bg-background">
 			<div className="flex items-center justify-between pb-4 border-b-2 border-outline mb-6">
 				<h2 className="font-headline font-bold text-lg uppercase tracking-tight">
 					03. Choose Voice
@@ -106,12 +106,12 @@ export function VoiceSelection() {
 						{[0, 1, 2, 3].map((i) => (
 							<div
 								key={i}
-								className="h-32 border-2 border-outline bg-surface-container animate-pulse"
+								className="h-32 border-2 border-outline animate-pulse"
 							/>
 						))}
 					</div>
 				) : voicesQuery.isError ? (
-					<div className="border-2 border-outline bg-surface-container p-4 mb-4 text-sm">
+					<div className="border-2 border-outline p-4 mb-4 text-sm">
 						<p className="font-bold uppercase text-xs mb-1">
 							Voices unavailable
 						</p>

@@ -33,7 +33,7 @@ const ChapterRow = memo(function ChapterRow({
 		<button
 			type="button"
 			onClick={() => onToggle(index)}
-			className="flex w-full items-center gap-3 p-3 bg-surface border-2 border-outline hover:bg-surface-container cursor-pointer transition-colors text-left [content-visibility:auto] [contain-intrinsic-size:auto_72px]"
+			className="flex w-full items-center gap-3 p-3 border-2 border-outline hover:bg-surface-container cursor-pointer transition-colors text-left [content-visibility:auto] [contain-intrinsic-size:auto_72px]"
 		>
 			<Checkbox
 				checked={checked}
@@ -41,15 +41,25 @@ const ChapterRow = memo(function ChapterRow({
 				onCheckedChange={() => onToggle(index)}
 			/>
 			<div className="flex-1 min-w-0">
-				<div className="flex items-center justify-between gap-2">
-					<span className="font-headline font-bold text-xs uppercase truncate">
+				<div className="flex items-center justify-between gap-2 min-w-0">
+					<span
+						className="font-headline font-bold text-xs uppercase truncate min-w-0 flex-1"
+						title={`Ch ${index + 1}: ${chapter.title}`}
+					>
 						Ch {index + 1}: {chapter.title}
 					</span>
 					<span className="font-mono text-[11px] font-bold text-secondary shrink-0 uppercase">
 						{label}
 					</span>
 				</div>
-				<p className="text-[11px] text-on-surface-variant font-mono">
+				<p
+					className="text-[11px] text-on-surface-variant font-mono truncate"
+					title={
+						chapter.href
+							? `${chapter.wordCount} words • ${chapter.href}`
+							: `${chapter.wordCount} words`
+					}
+				>
 					{chapter.wordCount} words
 					{chapter.href ? ` • ${chapter.href}` : ""}
 				</p>
@@ -98,7 +108,7 @@ export function Chapters() {
 	}, [book, jobs, selected, selectedAudioETA, speed]);
 
 	return (
-		<section className="bg-surface-bright border-2 border-outline p-6 shadow-section">
+		<section className="border-2 border-outline p-6 shadow-section bg-background max-h-112 min-w-0 overflow-x-hidden">
 			<div className="flex items-center justify-between pb-4 border-b-2 border-outline mb-4">
 				<h2 className="font-headline font-bold text-lg uppercase tracking-tight">
 					02. Chapter Scope
@@ -107,8 +117,8 @@ export function Chapters() {
 					{selectedCount} of {totalCount} SELECTED
 				</span>
 			</div>
-			<div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-outline/30 text-xs font-headline font-bold uppercase">
-				<div className="flex items-center gap-2">
+			<div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-outline/30 text-xs font-headline font-bold uppercase">
+				<div className="flex flex-wrap items-center gap-2 min-w-0">
 					<Button disabled={!book} onClick={selectAll}>
 						Select All
 					</Button>
@@ -117,16 +127,16 @@ export function Chapters() {
 						Deselect All
 					</Button>
 				</div>
-				<span className="text-[10px] font-mono text-on-surface-variant font-normal uppercase">
+				<span className="text-[10px] font-mono text-on-surface-variant font-normal uppercase min-w-0 text-right wrap-break-word">
 					EST. TOTAL: {totalLabel}
 				</span>
 			</div>
-			<div className="flex flex-col gap-2.5 max-h-118 overflow-y-auto pr-1">
+			<div className="flex flex-col gap-2.5 max-h-68 overflow-y-auto overflow-x-hidden pr-1 min-w-0">
 				{isParsing ? (
 					[0, 1, 2, 3].map((i) => (
 						<div
 							key={i}
-							className="h-18 border-2 border-outline bg-surface-container animate-pulse"
+							className="h-18 border-2 border-outline animate-pulse"
 						/>
 					))
 				) : !book || book.chapters.length === 0 ? (

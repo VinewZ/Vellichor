@@ -23,15 +23,12 @@ export const VoiceCard = memo(function VoiceCard({
 }: VoiceCardProps) {
 	return (
 		<div
-			className={cn(
-				"p-4 border-2 border-outline relative flex flex-col justify-between [content-visibility:auto]",
-				selected ? "bg-primary-container" : "bg-surface",
-			)}
+			className= "p-4 border-2 border-outline relative flex flex-col justify-between]"
 		>
 			<div>
 				<div className="flex items-start justify-between gap-2 mb-2">
 					<h4 className="font-headline font-bold text-sm uppercase">{id}</h4>
-					<span className="px-2 py-0.5 bg-primary text-on-primary text-[10px] font-headline font-bold uppercase">
+					<span className="px-2 py-0.5 text-[10px] font-headline font-bold uppercase">
 						{gender}
 					</span>
 				</div>

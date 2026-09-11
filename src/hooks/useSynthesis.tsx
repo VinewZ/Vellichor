@@ -27,7 +27,7 @@ interface SynthesisContextValue {
 
 const SynthesisContext = createContext<SynthesisContextValue | null>(null);
 
-const STORAGE_KEY = "pagevoice-synthesis-v1";
+const STORAGE_KEY = "vellichor-synthesis-v1";
 
 const DEFAULTS = {
 	model: "kokoro",

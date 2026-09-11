@@ -1,4 +1,4 @@
-# PageVoice — frontend for Kokoro TTS
+# Vellichor — frontend for Kokoro TTS
 
 Turn PDF / EPUB books into chapter-by-chapter audiobooks and a tagged `.m4b`.
 

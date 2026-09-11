@@ -61,7 +61,7 @@
   --spacing-reverseBoxShadowY: -2px;
   --radius-base: 5px;
   --shadow-shadow: var(--shadow);
-  --shadow-section: 5px 5px 0px 0px var(--border);
+  --shadow-section: 5px 5px 0px 0px var(--main);
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-weight-base: 500;

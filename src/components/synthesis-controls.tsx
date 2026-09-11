@@ -7,7 +7,7 @@ export function SynthesisControls() {
 		useSynthesis();
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t-2 border-outline bg-surface-container p-4">
+		<div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t-2 border-outline p-4">
 			<div>
 				<div className="flex justify-between text-xs font-headline font-bold uppercase mb-1.5">
 					<label htmlFor="synth-speed">Speed</label>
@@ -15,7 +15,7 @@ export function SynthesisControls() {
 				</div>
 				<input
 					id="synth-speed"
-					className="w-full accent-primary h-2 bg-surface-dim border border-outline appearance-none cursor-pointer"
+					className="w-full accent-primary h-2 border border-outline appearance-none cursor-pointer"
 					max="4"
 					min="0.25"
 					step="0.05"
@@ -38,7 +38,7 @@ export function SynthesisControls() {
 				</div>
 				<input
 					id="synth-volume"
-					className="w-full accent-primary h-2 bg-surface-dim border border-outline appearance-none cursor-pointer"
+					className="w-full accent-primary h-2 border border-outline appearance-none cursor-pointer"
 					max="2"
 					min="0.1"
 					step="0.05"
@@ -61,7 +61,7 @@ export function SynthesisControls() {
 				</div>
 				<select
 					id="synth-format"
-					className="w-full h-10 px-3 bg-surface border-2 border-outline text-sm font-mono cursor-pointer"
+					className="w-full h-10 px-3 border-2 border-outline text-sm font-mono cursor-pointer"
 					value={format}
 					onChange={(e) => setFormat(e.currentTarget.value as ResponseFormat)}
 				>
