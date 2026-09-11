@@ -29,7 +29,7 @@ Upload a book → pick a voice → render chapters server-side → preview per-c
 
 ```bash
 bun install
-bun run dev   # vite dev --port 3000
+bun run dev   # vite dev --port 5257
 ```
 
 Requires for render/export:
@@ -46,15 +46,18 @@ bun run dev
 
 ## Docker
 
-One compose file runs Vellichor + Kokoro (CUDA by default, CPU variant commented in `compose.yml` — enable only one, both publish host port `8880`).
+Two compose files, one per Kokoro flavor (custom names, so every command needs `-f`):
 
 ```bash
-cp .env.example .env   # KOKORO_BASE_URL=http://kokoro:8880 already set for compose
-docker compose up --build
+cp .env.example .env             # KOKORO_BASE_URL defaults to http://kokoro:8880 in compose
+docker compose -f docker-compose-cuda.yaml pull && docker compose -f docker-compose-cuda.yaml up -d   # NVIDIA GPU
+# or: docker compose -f docker-compose-cpu.yaml pull && docker compose -f docker-compose-cpu.yaml up -d    # CPU only
 ```
 
+Images are digest-pinned in both compose files (`vinewz/vellichor:latest@sha256:…`), so `pull` always fetches the exact verified bytes — no floating-`latest` surprises. Published tags: `latest`, plus the fix tag it was cut from.
+
 - Services talk over the compose network: Vellichor reaches Kokoro at `http://kokoro:8880`. Pointing at an external Kokoro instead? Set `KOKORO_BASE_URL` to `http://host.docker.internal:8880` (Docker Desktop) or your host's LAN IP (Linux). `127.0.0.1` points at the Vellichor container itself and will fail.
-- One `.env` for the stack: `KOKORO_*` shared, `VELLICHOR_*` for Vellichor. If Kokoro auth is on, `KOKORO_API_KEY` in `.env` must equal the key in `kokoro.env` (stays server-side, never sent to the browser).
+- One env file, one rule: everything lives in `.env` and compose injects it into both services — Vellichor and Kokoro share the `KOKORO_*` lines by construction (leave `KOKORO_BASE_URL` commented to use the same-compose default `http://kokoro:8880`). The only shared secret is the API key: set `KOKORO_API_KEY` in `.env` to require Bearer auth on every request (stays server-side, never sent to the browser), leave it empty for public access. A mismatch surfaces as "Kokoro rejected the API key (401)".
 - Data lives in `./data`: `./data/vellichor` (renders, manifests) + `./data/kokoro` (model, voices). If containers can't write there (root-owned bind dirs on Linux): `sudo chown -R $(id -u):$(id -g) data`.
 - `ffmpeg` + `ffprobe` are baked into the Vellichor image; no host install needed.
 - Kokoro needs ~30–60s to load its model after start; `/api/voices` returns 502 "unreachable" until then — normal, just retry.
@@ -62,9 +65,11 @@ docker compose up --build
 ## Building For Production
 
 ```bash
-bun run build
-bun run preview
+bun run build   # vite + Nitro → .output/ (node-server preset)
+bun run start   # node .output/server/index.mjs (serves client assets + SSR/API)
 ```
+
+Production runs on Node 22 via the [Nitro](https://nitro.build/) `node-server` preset — the raw TanStack Start server bundle cannot serve static files on its own, Nitro is what serves `dist/client` output. Same shape in Docker: the image builds `.output` and runs it with node.
 
 ## API Routes (`src/routes/api/`)
 

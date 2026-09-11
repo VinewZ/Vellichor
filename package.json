@@ -6,9 +6,10 @@
     "@/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "vite dev --port 5257",
     "generate-routes": "tsr generate",
     "build": "vite build",
+    "start": "node .output/server/index.mjs",
     "preview": "vite preview",
     "format": "biome format",
     "lint": "biome lint",
@@ -31,6 +32,7 @@
     "cn": "^0.2.5",
     "jszip": "^3.10.2",
     "lucide-react": "^1.41.0",
+    "nitro": "^3.0.260903-beta",
     "pdfjs-dist": "^6.3.289",
     "radix-ui": "^1.6.7",
     "react": "^19.2.0",

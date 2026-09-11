@@ -54,7 +54,10 @@ export const Route = createFileRoute("/api/voices")({
 					baseUrl = kokoroBaseUrl();
 				} catch (e) {
 					return Response.json(
-						{ error: e instanceof Error ? e.message : "KOKORO_BASE_URL is not set" },
+						{
+							error:
+								e instanceof Error ? e.message : "KOKORO_BASE_URL is not set",
+						},
 						{ status: 500 },
 					);
 				}
@@ -76,7 +79,9 @@ export const Route = createFileRoute("/api/voices")({
 
 				if (res.status === 401) {
 					return Response.json(
-						{ error: "Kokoro rejected the API key (401) — check KOKORO_API_KEY" },
+						{
+							error: "Kokoro rejected the API key (401) — check KOKORO_API_KEY",
+						},
 						{ status: 502 },
 					);
 				}

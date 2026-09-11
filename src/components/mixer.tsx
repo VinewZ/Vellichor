@@ -222,7 +222,7 @@ export function Mixer() {
 					))}
 				</div>
 			) : (
-				<div className="my-8 border-2 border-dashed border-outline p-6 text-center">
+				<div className="my-8 border-2 border-outline border-dashed p-6 text-center">
 					<p className="font-bold font-headline text-sm uppercase">
 						No chapters yet
 					</p>
