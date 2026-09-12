@@ -33,6 +33,14 @@ interface JobSnapshot {
 	chapters: ServerChapterSnapshot[];
 }
 
+interface ExportJobSnapshot {
+	jobId: string;
+	status: string;
+	progress: number;
+	phase: string;
+	error?: string;
+}
+
 interface ChapterAudioContextValue {
 	jobs: ChapterJob[];
 	runIndices: number[];
@@ -41,6 +49,8 @@ interface ChapterAudioContextValue {
 	error: string | null;
 	doneCount: number;
 	exporting: boolean;
+	exportProgress: number;
+	exportPhase: string;
 	generate: () => void;
 	cancel: () => void;
 	clearRender: () => void;
@@ -76,6 +86,8 @@ export function ChapterAudioProvider({
 	const [playingIndex, setPlayingIndex] = useState<number | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [exporting, setExporting] = useState(false);
+	const [exportProgress, setExportProgress] = useState(0);
+	const [exportPhase, setExportPhase] = useState("");
 
 	const fingerprint = useMemo(
 		() => (book ? bookFingerprint(book) : null),
@@ -88,7 +100,17 @@ export function ChapterAudioProvider({
 	const pollDelayRef = useRef(POLL_BASE_MS);
 	const pollStallRef = useRef(0);
 	const pollLastDoneRef = useRef(0);
+	const exportPollRef = useRef<number | null>(null);
+	const exportJobRef = useRef<string | null>(null);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
+
+	const stopExportPolling = useCallback(() => {
+		if (exportPollRef.current !== null) {
+			window.clearTimeout(exportPollRef.current);
+			exportPollRef.current = null;
+		}
+		exportJobRef.current = null;
+	}, []);
 
 	const stopPolling = useCallback(() => {
 		if (pollRef.current !== null) {
@@ -106,9 +128,13 @@ export function ChapterAudioProvider({
 
 	useEffect(() => {
 		stopPolling();
+		stopExportPolling();
 		setRunIndices([]);
 		setPlayingIndex(null);
 		setError(null);
+		setExporting(false);
+		setExportProgress(0);
+		setExportPhase("");
 		audioRef.current?.pause();
 		audioRef.current = null;
 		if (!book) {
@@ -146,9 +172,10 @@ export function ChapterAudioProvider({
 			)
 			.catch(() => {});
 		return stopPolling;
-	}, [book, stopPolling]);
+	}, [book, stopPolling, stopExportPolling]);
 
 	useEffect(() => stopPolling, [stopPolling]);
+	useEffect(() => stopExportPolling, [stopExportPolling]);
 
 	// Returning to a hidden-then-visible tab refreshes state immediately
 	// instead of waiting out the paused poll cadence.
@@ -405,7 +432,10 @@ export function ChapterAudioProvider({
 
 	const exportM4b = useCallback(() => {
 		if (!book || !fingerprint || exporting) return;
+		stopExportPolling();
 		setExporting(true);
+		setExportProgress(0);
+		setExportPhase("Preparing…");
 		setError(null);
 		const buildCover = async (): Promise<
 			{ dataBase64: string; mime: string } | undefined
@@ -436,6 +466,74 @@ export function ChapterAudioProvider({
 				return undefined;
 			}
 		};
+		const downloadFinishedExport = async (jobId: string) => {
+			const res = await fetch(
+				`/api/export?id=${encodeURIComponent(jobId)}&download=1`,
+			);
+			if (!res.ok) {
+				const data = (await res.json().catch(() => null)) as {
+					error?: string;
+				} | null;
+				throw new Error(data?.error ?? `Export failed: ${res.status}`);
+			}
+			const blob = await res.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `${book.title.replace(/[^A-Za-z0-9._-]+/g, " ").trim() || "book"}.m4b`;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+		};
+		const pollExport = (jobId: string) => {
+			exportJobRef.current = jobId;
+			fetch(`/api/export?id=${encodeURIComponent(jobId)}`)
+				.then((res) => {
+					if (!res.ok) {
+						return res.json().then((data: { error?: string }) => {
+							throw new Error(data.error ?? `Export failed: ${res.status}`);
+						});
+					}
+					return res.json() as Promise<ExportJobSnapshot>;
+				})
+				.then((snap) => {
+					if (exportJobRef.current !== jobId) return;
+					if (typeof snap.progress === "number")
+						setExportProgress(snap.progress);
+					if (typeof snap.phase === "string" && snap.phase)
+						setExportPhase(snap.phase);
+					if (snap.status === "done") {
+						exportJobRef.current = null;
+						downloadFinishedExport(jobId)
+							.then(() => {
+								setExportProgress(100);
+								setExportPhase("Done");
+							})
+							.catch((e: unknown) => {
+								setError(e instanceof Error ? e.message : "Export failed");
+							})
+							.finally(() => setExporting(false));
+					} else if (snap.status === "error") {
+						exportJobRef.current = null;
+						setError(snap.error ?? "Export failed");
+						setExporting(false);
+					} else {
+						if (exportPollRef.current !== null)
+							window.clearTimeout(exportPollRef.current);
+						exportPollRef.current = window.setTimeout(
+							() => pollExport(jobId),
+							1000,
+						);
+					}
+				})
+				.catch((e: unknown) => {
+					if (exportJobRef.current !== jobId) return;
+					exportJobRef.current = null;
+					setError(e instanceof Error ? e.message : "Export failed");
+					setExporting(false);
+				});
+		};
 		(async () => {
 			const cover = await buildCover();
 			const metadata = parsedBookToExportMeta(book);
@@ -455,23 +553,17 @@ export function ChapterAudioProvider({
 				} | null;
 				throw new Error(data?.error ?? `Export failed: ${res.status}`);
 			}
-			return res.blob();
+			const data = (await res.json()) as { jobId?: string };
+			if (!data.jobId) throw new Error("Export failed to start");
+			return data.jobId;
 		})()
-			.then((blob) => {
-				const url = URL.createObjectURL(blob);
-				const a = document.createElement("a");
-				a.href = url;
-				a.download = `${book.title.replace(/[^A-Za-z0-9._-]+/g, " ").trim() || "book"}.m4b`;
-				document.body.appendChild(a);
-				a.click();
-				a.remove();
-				URL.revokeObjectURL(url);
-			})
+			.then((jobId) => pollExport(jobId))
 			.catch((e: unknown) => {
+				exportJobRef.current = null;
 				setError(e instanceof Error ? e.message : "Export failed");
-			})
-			.finally(() => setExporting(false));
-	}, [book, fingerprint, exporting]);
+				setExporting(false);
+			});
+	}, [book, fingerprint, exporting, stopExportPolling]);
 
 	const doneCount = useMemo(
 		() => jobs.filter((j) => j.status === "done").length,
@@ -487,6 +579,8 @@ export function ChapterAudioProvider({
 			error,
 			doneCount,
 			exporting,
+			exportProgress,
+			exportPhase,
 			generate,
 			cancel,
 			clearRender,
@@ -502,6 +596,8 @@ export function ChapterAudioProvider({
 			error,
 			doneCount,
 			exporting,
+			exportProgress,
+			exportPhase,
 			generate,
 			cancel,
 			clearRender,

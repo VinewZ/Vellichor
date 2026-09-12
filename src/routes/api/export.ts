@@ -1,7 +1,11 @@
 import { createReadStream, promises as fs } from "node:fs";
 import { Readable } from "node:stream";
 import { createFileRoute } from "@tanstack/react-router";
-import { exportM4b } from "@/lib/server/render-jobs";
+import {
+	getExportFile,
+	getExportJob,
+	startExport,
+} from "@/lib/server/render-jobs";
 
 export const Route = createFileRoute("/api/export")({
 	server: {
@@ -56,26 +60,73 @@ export const Route = createFileRoute("/api/export")({
 					cover = { dataBase64: rawCover.dataBase64, mime: rawCover.mime };
 				}
 				try {
-					const { filePath, fileName } = await exportM4b(
-						b.fingerprint,
-						metadata,
-						cover,
+					const jobId = await startExport(b.fingerprint, metadata, cover);
+					return Response.json({ jobId });
+				} catch (e) {
+					const message =
+						e instanceof Error ? e.message : "Could not start export";
+					const status =
+						message === "An export is already running for this book"
+							? 409
+							: 400;
+					return Response.json({ error: message }, { status });
+				}
+			},
+			GET: async ({ request }: { request: Request }) => {
+				const url = new URL(request.url);
+				const id = url.searchParams.get("id");
+				if (!id) {
+					return Response.json({ error: "Missing id" }, { status: 400 });
+				}
+				const job = getExportJob(id);
+				if (!job) {
+					return Response.json(
+						{ error: "Unknown export job" },
+						{ status: 404 },
 					);
-					const size = (await fs.stat(filePath)).size;
+				}
+				const wantsFile =
+					url.searchParams.has("download") || url.searchParams.has("file");
+				if (!wantsFile) return Response.json(job);
+				if (job.status === "error") {
+					return Response.json(
+						{ error: job.error ?? "Export failed" },
+						{ status: 400 },
+					);
+				}
+				if (job.status !== "done") {
+					return Response.json(
+						{
+							error: "Export not ready",
+							status: job.status,
+							progress: job.progress,
+						},
+						{ status: 409 },
+					);
+				}
+				const file = getExportFile(id);
+				if (!file) {
+					return Response.json(
+						{ error: "Export file missing" },
+						{ status: 404 },
+					);
+				}
+				try {
+					const size = (await fs.stat(file.filePath)).size;
 					return new Response(
-						Readable.toWeb(createReadStream(filePath)) as ReadableStream,
+						Readable.toWeb(createReadStream(file.filePath)) as ReadableStream,
 						{
 							headers: {
 								"Content-Type": "audio/mp4",
 								"Content-Length": String(size),
-								"Content-Disposition": `attachment; filename="${fileName.replace(/"/g, "")}"`,
+								"Content-Disposition": `attachment; filename="${file.fileName.replace(/"/g, "")}"`,
 							},
 						},
 					);
-				} catch (e) {
+				} catch {
 					return Response.json(
-						{ error: e instanceof Error ? e.message : "Export failed" },
-						{ status: 400 },
+						{ error: "Export file missing" },
+						{ status: 404 },
 					);
 				}
 			},

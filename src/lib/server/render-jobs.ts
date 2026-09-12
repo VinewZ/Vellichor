@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -464,20 +464,156 @@ async function writeCoverFile(
 	return coverPath;
 }
 
-async function runFfmpeg(args: string[]): Promise<void> {
-	try {
-		await execFileAsync(ffmpegPath(), args);
-	} catch (e) {
-		const detail = e instanceof Error ? e.message : String(e);
-		throw new Error(`ffmpeg export failed: ${detail.slice(-500)}`);
+export type ExportJobStatus = "preparing" | "encoding" | "done" | "error";
+
+export interface ExportJobSnapshot {
+	jobId: string;
+	status: ExportJobStatus;
+	fingerprint: string;
+	progress: number;
+	phase: string;
+	totalMs: number;
+	doneMs: number;
+	fileName?: string;
+	error?: string;
+}
+
+interface ExportJob extends ExportJobSnapshot {
+	filePath?: string;
+	finishedAt?: number;
+}
+
+const exportJobs = new Map<string, ExportJob>();
+
+function pruneExportJobs(): void {
+	if (exportJobs.size <= 50) return;
+	const now = Date.now();
+	for (const [id, job] of exportJobs) {
+		if (
+			(job.status === "done" || job.status === "error") &&
+			job.finishedAt !== undefined &&
+			now - job.finishedAt > 15 * 60 * 1000
+		) {
+			exportJobs.delete(id);
+		}
 	}
 }
 
-export async function exportM4b(
+function clampProgress(n: number): number {
+	if (!Number.isFinite(n)) return 0;
+	return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function parseTimeToMs(value: string): number | undefined {
+	const m = value.trim().match(/(\d+):(\d{1,2}):([\d.]+)/);
+	if (!m) return undefined;
+	const h = Number(m[1]);
+	const min = Number(m[2]);
+	const sec = Number(m[3]);
+	if (!Number.isFinite(h) || !Number.isFinite(min) || !Number.isFinite(sec))
+		return undefined;
+	return Math.round((h * 3600 + min * 60 + sec) * 1000);
+}
+
+async function runFfmpegWithProgress(
+	args: string[],
+	totalMs: number,
+	onProgress?: (doneMs: number) => void,
+): Promise<void> {
+	const progressedArgs = [...args];
+	const outIndex = progressedArgs.lastIndexOf("book.m4b");
+	if (outIndex === -1) {
+		progressedArgs.push("-hide_banner", "-nostats", "-progress", "pipe:1");
+	} else {
+		progressedArgs.splice(
+			outIndex,
+			0,
+			"-hide_banner",
+			"-nostats",
+			"-progress",
+			"pipe:1",
+		);
+	}
+	await new Promise<void>((resolve, reject) => {
+		const child = spawn(ffmpegPath(), progressedArgs, {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let stdoutBuf = "";
+		let stderrTail = "";
+		let settled = false;
+		const fail = (message: string) => {
+			if (settled) return;
+			settled = true;
+			try {
+				child.kill("SIGKILL");
+			} catch {
+				// already exited
+			}
+			reject(new Error(message));
+		};
+		const finish = (code: number | null) => {
+			if (settled) return;
+			settled = true;
+			if (code === 0) resolve();
+			else
+				reject(
+					new Error(
+						`ffmpeg export failed (code ${code ?? "?"}): ${stderrTail.slice(-500)}`,
+					),
+				);
+		};
+		child.stdout.on("data", (chunk: Buffer) => {
+			stdoutBuf += chunk.toString();
+			let idx = stdoutBuf.indexOf("\n");
+			while (idx >= 0) {
+				const line = stdoutBuf.slice(0, idx).trim();
+				stdoutBuf = stdoutBuf.slice(idx + 1);
+				if (line.startsWith("out_time_ms=")) {
+					const v = Number(line.slice("out_time_ms=".length).trim());
+					// ffmpeg reports out_time_ms in microseconds despite the name
+					if (Number.isFinite(v))
+						onProgress?.(Math.max(0, Math.round(v / 1000)));
+				} else if (line.startsWith("out_time_us=")) {
+					const v = Number(line.slice("out_time_us=".length).trim());
+					if (Number.isFinite(v))
+						onProgress?.(Math.max(0, Math.round(v / 1000)));
+				} else if (line === "progress=end") {
+					onProgress?.(totalMs);
+				}
+				idx = stdoutBuf.indexOf("\n");
+			}
+		});
+		child.stderr.on("data", (chunk: Buffer) => {
+			const text = chunk.toString();
+			stderrTail += text;
+			if (stderrTail.length > 20000) stderrTail = stderrTail.slice(-20000);
+			// Fallback for ffmpeg builds without -progress support
+			const matches = text.matchAll(/time=(\d+:\d{1,2}:[\d.]+)/g);
+			for (const m of matches) {
+				const ms = parseTimeToMs(m[1] ?? "");
+				if (ms !== undefined) onProgress?.(ms);
+			}
+		});
+		child.on("error", (e) => fail(`ffmpeg export failed: ${e.message}`));
+		child.on("close", finish);
+	});
+}
+
+interface PreparedExport {
+	fp: string;
+	dir: string;
+	totalMs: number;
+	filePath: string;
+	fileName: string;
+	baseArgs: string[];
+	coverPath: string | null;
+}
+
+async function prepareExport(
 	fingerprint: string,
 	titleOrMeta: string | ExportBookMetadata,
 	cover?: ExportCoverInput,
-): Promise<{ filePath: string; fileName: string }> {
+): Promise<PreparedExport> {
 	const fp = sanitizeFingerprint(fingerprint);
 	const dir = bookDir(fp);
 	const raw = await readFile(manifestPath(fp), "utf-8").catch(() => {
@@ -579,46 +715,168 @@ export async function exportM4b(
 		"-i",
 		join(dir, "chapters.meta"),
 	];
-	if (coverPath) {
+	return { fp, dir, totalMs: cursor, filePath, fileName, baseArgs, coverPath };
+}
+
+async function encodePreparedExport(
+	prepared: PreparedExport,
+	onProgress?: (doneMs: number) => void,
+): Promise<void> {
+	const totalMs = prepared.totalMs;
+	if (prepared.coverPath) {
 		try {
-			await runFfmpeg([
-				...baseArgs,
-				"-i",
-				coverPath,
-				"-map",
-				"0:a",
-				"-map",
-				"2:v",
-				"-map_metadata",
-				"1",
-				"-c:a",
-				"aac",
-				"-b:a",
-				"128k",
-				"-c:v",
-				"copy",
-				"-disposition:v",
-				"attached_pic",
-				"-movflags",
-				"+faststart",
-				filePath,
-			]);
-			return { filePath, fileName };
+			await runFfmpegWithProgress(
+				[
+					...prepared.baseArgs,
+					"-i",
+					prepared.coverPath,
+					"-map",
+					"0:a",
+					"-map",
+					"2:v",
+					"-map_metadata",
+					"1",
+					"-c:a",
+					"aac",
+					"-b:a",
+					"128k",
+					"-c:v",
+					"copy",
+					"-disposition:v",
+					"attached_pic",
+					"-movflags",
+					"+faststart",
+					prepared.filePath,
+				],
+				totalMs,
+				onProgress,
+			);
+			return;
 		} catch {
 			// fall through to audio-only export
 		}
 	}
-	await runFfmpeg([
-		...baseArgs,
-		"-map_metadata",
-		"1",
-		"-c:a",
-		"aac",
-		"-b:a",
-		"128k",
-		"-movflags",
-		"+faststart",
-		filePath,
-	]);
-	return { filePath, fileName };
+	await runFfmpegWithProgress(
+		[
+			...prepared.baseArgs,
+			"-map_metadata",
+			"1",
+			"-c:a",
+			"aac",
+			"-b:a",
+			"128k",
+			"-movflags",
+			"+faststart",
+			prepared.filePath,
+		],
+		totalMs,
+		onProgress,
+	);
+}
+
+async function runExportJob(
+	jobId: string,
+	fingerprint: string,
+	titleOrMeta: string | ExportBookMetadata,
+	cover?: ExportCoverInput,
+): Promise<void> {
+	const job = exportJobs.get(jobId);
+	if (!job) return;
+	try {
+		job.phase = "Probing chapters…";
+		const prepared = await prepareExport(fingerprint, titleOrMeta, cover);
+		job.totalMs = prepared.totalMs;
+		job.fileName = prepared.fileName;
+		job.filePath = prepared.filePath;
+		job.status = "encoding";
+		job.phase = "Encoding audio…";
+		await encodePreparedExport(prepared, (doneMs) => {
+			const current = exportJobs.get(jobId);
+			if (!current) return;
+			current.doneMs = Math.min(doneMs, prepared.totalMs);
+			current.progress =
+				prepared.totalMs > 0
+					? clampProgress((current.doneMs / prepared.totalMs) * 100)
+					: 0;
+		});
+		const finished = exportJobs.get(jobId);
+		if (!finished) return;
+		finished.status = "done";
+		finished.progress = 100;
+		finished.doneMs = prepared.totalMs;
+		finished.phase = "Done";
+		finished.finishedAt = Date.now();
+	} catch (e) {
+		const failed = exportJobs.get(jobId);
+		if (!failed) return;
+		failed.status = "error";
+		failed.phase = "Failed";
+		failed.error = e instanceof Error ? e.message : "Export failed";
+		failed.finishedAt = Date.now();
+	}
+}
+
+export async function startExport(
+	fingerprint: string,
+	titleOrMeta: string | ExportBookMetadata,
+	cover?: ExportCoverInput,
+): Promise<string> {
+	const fp = sanitizeFingerprint(fingerprint);
+	for (const job of exportJobs.values()) {
+		if (
+			job.fingerprint === fp &&
+			(job.status === "preparing" || job.status === "encoding")
+		) {
+			throw new Error("An export is already running for this book");
+		}
+	}
+	pruneExportJobs();
+	const jobId = crypto.randomUUID();
+	exportJobs.set(jobId, {
+		jobId,
+		status: "preparing",
+		fingerprint: fp,
+		progress: 0,
+		phase: "Preparing…",
+		totalMs: 0,
+		doneMs: 0,
+	});
+	void runExportJob(jobId, fp, titleOrMeta, cover);
+	return jobId;
+}
+
+export function getExportJob(jobId: string): ExportJobSnapshot | null {
+	const job = exportJobs.get(jobId);
+	if (!job) return null;
+	return {
+		jobId: job.jobId,
+		status: job.status,
+		fingerprint: job.fingerprint,
+		progress: job.progress,
+		phase: job.phase,
+		totalMs: job.totalMs,
+		doneMs: job.doneMs,
+		fileName: job.fileName,
+		error: job.error,
+	};
+}
+
+export function getExportFile(jobId: string): {
+	filePath: string;
+	fileName: string;
+} | null {
+	const job = exportJobs.get(jobId);
+	if (!job || job.status !== "done" || !job.filePath || !job.fileName)
+		return null;
+	return { filePath: job.filePath, fileName: job.fileName };
+}
+
+export async function exportM4b(
+	fingerprint: string,
+	titleOrMeta: string | ExportBookMetadata,
+	cover?: ExportCoverInput,
+): Promise<{ filePath: string; fileName: string }> {
+	const prepared = await prepareExport(fingerprint, titleOrMeta, cover);
+	await encodePreparedExport(prepared);
+	return { filePath: prepared.filePath, fileName: prepared.fileName };
 }

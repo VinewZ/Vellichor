@@ -140,6 +140,8 @@ export function Mixer() {
 		error,
 		doneCount,
 		exporting,
+		exportProgress,
+		exportPhase,
 		generate,
 		cancel,
 		clearRender,
@@ -162,7 +164,8 @@ export function Mixer() {
 						? `Rendering… ${doneCount} of ${runIndices.length} done`
 						: `Ready — ${selectedIndices.length} chapter(s) selected`;
 		const canExport = !!book && doneCount > 0 && !isGenerating && !exporting;
-		const canClear = !!book && !isGenerating && runIndices.length > 0;
+		const canClear =
+			!!book && !isGenerating && !exporting && runIndices.length > 0;
 		return { selectedIndices, canGenerate, hint, canExport, canClear };
 	}, [book, selected, voice, isGenerating, doneCount, runIndices, exporting]);
 	const { selectedIndices, canGenerate, hint, canExport, canClear } =
@@ -233,7 +236,14 @@ export function Mixer() {
 			)}
 			<div className="flex items-center gap-3">
 				<Button variant="neutral" disabled={!canExport} onClick={exportM4b}>
-					{exporting ? "Exporting…" : "Export .M4B"}
+					{exporting ? (
+						<>
+							<LoaderCircle className="size-4 animate-spin" />
+							Exporting {exportProgress}%…
+						</>
+					) : (
+						"Export .M4B"
+					)}
 				</Button>
 				<Button variant="neutral" disabled={!canClear} onClick={clearRender}>
 					<Trash2 />
@@ -245,6 +255,33 @@ export function Mixer() {
 						: "Generate chapters first"}
 				</span>
 			</div>
+			{doneCount > 0 ? (
+				<p className="mt-2 font-mono text-[11px] text-on-surface-variant">
+					Note: M4B export re-encodes the full book and can take a few minutes
+					for long books — keep this tab open until the download starts.
+				</p>
+			) : null}
+			{exporting ? (
+				<div className="mt-3">
+					<div
+						className="h-2 w-full border border-outline"
+						role="progressbar"
+						aria-valuemin={0}
+						aria-valuemax={100}
+						aria-valuenow={exportProgress}
+						aria-label="M4B export progress"
+					>
+						<div
+							className="h-full transition-[width]"
+							style={{ width: `${exportProgress}%` }}
+						/>
+					</div>
+					<div className="mt-1 flex justify-between font-bold font-mono text-[10px] text-on-surface-variant">
+						<span className="text-secondary">{exportProgress}%</span>
+						<span>{exportPhase || "Exporting…"}</span>
+					</div>
+				</div>
+			) : null}
 		</section>
 	);
 }
