@@ -4,6 +4,8 @@ Turn PDF / EPUB books into chapter-by-chapter audiobooks and a tagged `.m4b`.
 
 This is a web frontend for [Kokoro TTS](https://github.com/hwdsl2/docker-kokoro) — it does no inference itself, it only sends text chunks to a running Kokoro server (`POST /v1/audio/speech`) and assembles the returned audio.
 
+Speech synthesis by [Kokoro](https://github.com/hexgrad/kokoro) (Apache-2.0) via [docker-kokoro](https://github.com/hwdsl2/docker-kokoro) (MIT) — neither is bundled here; this app only calls its HTTP API. Vellichor itself is [MIT licensed](LICENSE).
+
 Upload a book → pick a voice → render chapters server-side → preview per-chapter audio → export a single M4B with chapter marks, book metadata, and cover art.
 
 ![Vellichor — upload a book, pick a voice, render chapters, export a tagged M4B](.github/assets/vellichor-full-page.png)
