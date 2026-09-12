@@ -85,7 +85,8 @@ Production runs on Node 22 via the [Nitro](https://nitro.build/) `node-server` p
 - `POST /api/render` — `{ fingerprint, fileName, voice, synthesis, chapters[] }` → `{ jobId }`. Restores done chapters from `manifest.json`.
 - `GET /api/render?id=<jobId>` — job snapshot. `GET /api/render?fingerprint=` — manifest read.
 - `DELETE /api/render?id=` — cancel. `DELETE /api/render?fingerprint=` — abort + `rm -rf bookDir`.
-- `POST /api/export` — `{ fingerprint, title, metadata {title, author?, publisher?, date?, fileName?}, cover? {dataBase64, mime} }` → `audio/mp4` download. Cover must be JPEG/PNG base64 ≤ ~7 MB string.
+- `POST /api/export` — `{ fingerprint, title, metadata {title, author?, publisher?, date?, fileName?}, cover? {dataBase64, mime} }` → `{ jobId }` (ffmpeg runs in the background). Cover must be JPEG/PNG base64 ≤ ~7 MB string.
+- `GET /api/export?id=<jobId>` — export snapshot (`status`, `progress`, `phase`). `GET /api/export?id=<jobId>&download=1` — stream the finished `book.m4b` (`audio/mp4`).
 - `GET /api/files?fingerprint=&chapter=` — stream chapter MP3. Also `/api/speech`, `/api/voices` (Kokoro proxy).
 
 Verify an export:
