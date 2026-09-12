@@ -1,7 +1,7 @@
 # Vellichor + Kokoro (CPU). Slower inference, no GPU needed.
 services:
   vellichor:
-    image: vinewz/vellichor:latest@sha256:cb9d3c586cc38448d140fb4b5ded7051b1a6586798ad9512047ded314569d47d
+    image: vinewz/vellichor:latest
     environment:
       # Same-compose DNS; set only for an external Kokoro.
       KOKORO_BASE_URL: ${KOKORO_BASE_URL:-http://kokoro:8880}

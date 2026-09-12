@@ -54,7 +54,7 @@ docker compose -f docker-compose-cuda.yaml pull && docker compose -f docker-comp
 # or: docker compose -f docker-compose-cpu.yaml pull && docker compose -f docker-compose-cpu.yaml up -d    # CPU only
 ```
 
-Images are digest-pinned in both compose files (`vinewz/vellichor:latest@sha256:…`), so `pull` always fetches the exact verified bytes — no floating-`latest` surprises. Published tags: `latest`, plus the fix tag it was cut from.
+Images track `vinewz/vellichor:latest` — every release overwrites it and every deploy pulls it, so `pull` always fetches the current bytes. Published tags: `latest`, plus the fix tag it was cut from.
 
 - Services talk over the compose network: Vellichor reaches Kokoro at `http://kokoro:8880`. Pointing at an external Kokoro instead? Set `KOKORO_BASE_URL` to `http://host.docker.internal:8880` (Docker Desktop) or your host's LAN IP (Linux). `127.0.0.1` points at the Vellichor container itself and will fail.
 - One env file, one rule: everything lives in `.env` and compose injects it into both services — Vellichor and Kokoro share the `KOKORO_*` lines by construction (leave `KOKORO_BASE_URL` commented to use the same-compose default `http://kokoro:8880`). The only shared secret is the API key: set `KOKORO_API_KEY` in `.env` to require Bearer auth on every request (stays server-side, never sent to the browser), leave it empty for public access. A mismatch surfaces as "Kokoro rejected the API key (401)".
