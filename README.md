@@ -6,6 +6,10 @@ This is a web frontend for [Kokoro TTS](https://github.com/hwdsl2/docker-kokoro)
 
 Upload a book → pick a voice → render chapters server-side → preview per-chapter audio → export a single M4B with chapter marks, book metadata, and cover art.
 
+![Vellichor — upload a book, pick a voice, render chapters, export a tagged M4B](.github/assets/vellichor-full-page.png)
+
+9 languages with multiple voices each: 🇺🇸 American · 🇬🇧 British · 🇯🇵 Japanese · 🇨🇳 Mandarin Chinese · 🇪🇸 Spanish · 🇫🇷 French · 🇮🇳 Hindi · 🇮🇹 Italian · 🇧🇷 Brazilian Portuguese.
+
 ## Features
 
 - **Book parsing (client-side):**
@@ -14,6 +18,7 @@ Upload a book → pick a voice → render chapters server-side → preview per-c
   - 100 MB limit, word count + audio ETA, fingerprint `fileName--sizeMB` for disk cache.
 - **Voices & synthesis:**
   - Voice list + preview (`/api/voices`, `/api/speech`), model / speed / volume / format controls.
+  - 9 languages (🇺🇸 🇬🇧 🇯🇵 🇨🇳 🇪🇸 🇫🇷 🇮🇳 🇮🇹 🇧🇷), each with multiple male and female voices and per-voice audio preview.
 - **Chapter rendering (server-side):**
   - Sentence-aware chunking (`Intl.Segmenter` + line-break preservation, ~3800 chars, Kokoro 4000-char hard limit).
   - Sequential render per chapter, chunk → Kokoro `POST /v1/audio/speech` → concat → `ch-XX.mp3`.
@@ -24,6 +29,8 @@ Upload a book → pick a voice → render chapters server-side → preview per-c
   - Global tags: `title / artist / album / album_artist / author / publisher / date / year / comment`.
   - Cover: client blob → base64 (≤5 MB, JPEG/PNG only, SVG skipped) → `cover.jpg/png` → ffmpeg `-disposition:v attached_pic`. Falls back to audio-only on bad cover.
   - `ffmpeg -f concat + -map_metadata 1 -c:a aac 128k -movflags +faststart book.m4b`.
+  - Sample output — *Frankenstein; or, The Modern Prometheus* (~6 MB):
+    <audio controls src=".github/assets/frankenstein-sample.mp3"></audio>
 
 ## Getting Started
 
