@@ -6,7 +6,7 @@ import {
 	bookDir,
 	chapterFileName,
 	sanitizeFingerprint,
-} from "@/lib/server/render-jobs";
+} from "@/lib/server/paths";
 
 export const Route = createFileRoute("/api/files")({
 	server: {

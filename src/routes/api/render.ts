@@ -5,7 +5,7 @@ import {
 	getJob,
 	readManifest,
 	startRender,
-} from "@/lib/server/render-jobs";
+} from "@/lib/server/render";
 import type { SynthesisSnapshot } from "@/lib/synthesis";
 
 function clamp(n: number, min: number, max: number, fallback: number) {
