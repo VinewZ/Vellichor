@@ -12,7 +12,7 @@ Upload a book, pick a voice, render chapters server-side, preview per-chapter au
 
 Sample output, *Frankenstein; or, The Modern Prometheus*:
 
-<video src=".github/assets/frankenstein-sample.mp4" controls="controls" style="max-width: 100%"></video>
+<video src="https://github.com/user-attachments/assets/c90e1cc1-ea7e-4451-b4e6-0658ad7016d4"></video>
 
 Cropped excerpt, converted and compressed for embedding, so quality may differ from a full render.
 
