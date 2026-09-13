@@ -191,7 +191,10 @@ function sniffAudioExt(buf: Buffer): string {
 // Raw Buffer.concat of such parts yields a file that plays only part 0:
 // a WAV header declares part 0's length, mid-file ID3 tags stop players.
 // Decode + re-encode through ffmpeg so N parts become one clean MP3.
-export async function joinPartsToMp3(parts: Buffer[], outPath: string): Promise<void> {
+export async function joinPartsToMp3(
+	parts: Buffer[],
+	outPath: string,
+): Promise<void> {
 	if (parts.length === 0) throw new Error("No audio parts to join");
 	if (parts.length === 1 && sniffAudioExt(parts[0] as Buffer) === "mp3") {
 		await writeFile(outPath, parts[0] as Buffer);
