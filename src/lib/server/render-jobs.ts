@@ -1,5 +1,13 @@
 import { execFile, spawn } from "node:child_process";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { chunkText, voiceIdToLocale } from "@/lib/chapter-audio";
@@ -156,9 +164,78 @@ async function probeDurationSec(filePath: string): Promise<number | undefined> {
 	return undefined;
 }
 
+function isDryRun(): boolean {
+	return process.env.VELLICHOR_DRY_RUN === "1";
+}
+
+function dryRunDir(fingerprint: string): string {
+	return join(bookDir(fingerprint), "dryrun");
+}
+
+function sniffAudioExt(buf: Buffer): string {
+	if (
+		buf.length >= 12 &&
+		buf.subarray(0, 4).toString("ascii") === "RIFF" &&
+		buf.subarray(8, 12).toString("ascii") === "WAVE"
+	)
+		return "wav";
+	if (buf.length >= 3 && buf[0] === 0xff && (buf[1] ?? 0) >= 0xe0) return "mp3";
+	if (buf.subarray(0, 3).toString("ascii") === "ID3") return "mp3";
+	if (buf.subarray(0, 4).toString("ascii") === "fLaC") return "flac";
+	if (buf.subarray(0, 4).toString("ascii") === "OggS") return "ogg";
+	return "bin";
+}
+
+// Kokoro may return WAV, MP3, or other bytes regardless of the requested
+// response_format, and every part carries its own container headers.
+// Raw Buffer.concat of such parts yields a file that plays only part 0:
+// a WAV header declares part 0's length, mid-file ID3 tags stop players.
+// Decode + re-encode through ffmpeg so N parts become one clean MP3.
+export async function joinPartsToMp3(parts: Buffer[], outPath: string): Promise<void> {
+	if (parts.length === 0) throw new Error("No audio parts to join");
+	if (parts.length === 1 && sniffAudioExt(parts[0] as Buffer) === "mp3") {
+		await writeFile(outPath, parts[0] as Buffer);
+		return;
+	}
+	const dir = await mkdtemp(join(tmpdir(), "vellichor-parts-"));
+	try {
+		const args = ["-y", "-hide_banner", "-nostats", "-loglevel", "error"];
+		for (let i = 0; i < parts.length; i++) {
+			const partPath = join(
+				dir,
+				`part-${i}.${sniffAudioExt(parts[i] as Buffer)}`,
+			);
+			await writeFile(partPath, parts[i] as Buffer);
+			args.push("-i", partPath);
+		}
+		args.push(
+			"-filter_complex",
+			`concat=n=${parts.length}:v=0:a=1`,
+			"-c:a",
+			"libmp3lame",
+			"-b:a",
+			"64k",
+			"-ac",
+			"1",
+			"-ar",
+			"24000",
+			outPath,
+		);
+		await execFileAsync(ffmpegPath(), args);
+	} finally {
+		await rm(dir, { recursive: true, force: true }).catch(() => {});
+	}
+}
+
 async function runJob(job: Job, input: StartRenderInput): Promise<void> {
-	const baseUrl = kokoroBaseUrl();
+	const dryRun = isDryRun();
+	const baseUrl = dryRun ? "" : kokoroBaseUrl();
 	const locale = voiceIdToLocale(input.voice);
+	if (dryRun) {
+		await mkdir(dryRunDir(job.fingerprint), { recursive: true }).catch(
+			() => {},
+		);
+	}
 	for (const chapter of job.chapters) {
 		if (job.controller.signal.aborted) break;
 		if (chapter.status === "done") continue;
@@ -170,6 +247,34 @@ async function runJob(job: Job, input: StartRenderInput): Promise<void> {
 			const chunks = chunkText(source.text, locale);
 			chapter.totalChunks = chunks.length;
 			chapter.doneChunks = 0;
+			if (dryRun) {
+				await writeFile(
+					join(dryRunDir(job.fingerprint), `ch-${chapter.index}.json`),
+					JSON.stringify(
+						{
+							index: chapter.index,
+							title: chapter.title,
+							locale,
+							sourceChars: source.text.length,
+							sourceWords: source.text.trim().split(/\s+/).filter(Boolean)
+								.length,
+							totalChunks: chunks.length,
+							chunks: chunks.map((text, i) => ({
+								i,
+								chars: text.length,
+								words: text.trim().split(/\s+/).filter(Boolean).length,
+								preview: text.slice(0, 200),
+								text,
+							})),
+						},
+						null,
+						2,
+					),
+				);
+				chapter.doneChunks = chunks.length;
+				chapter.status = "done";
+				continue;
+			}
 			const parts: Buffer[] = [];
 			for (const text of chunks) {
 				parts.push(
@@ -181,13 +286,13 @@ async function runJob(job: Job, input: StartRenderInput): Promise<void> {
 				);
 				chapter.doneChunks += 1;
 			}
-			await writeFile(
-				chapterPath(job.fingerprint, chapter.index),
-				Buffer.concat(parts),
-			);
+			await joinPartsToMp3(parts, chapterPath(job.fingerprint, chapter.index));
 			chapter.durationSec = await probeDurationSec(
 				chapterPath(job.fingerprint, chapter.index),
 			);
+			if (chapter.durationSec === undefined) {
+				throw new Error("Could not verify chapter audio duration");
+			}
 			chapter.status = "done";
 		} catch (e) {
 			if (job.controller.signal.aborted) break;
@@ -214,7 +319,8 @@ async function runJob(job: Job, input: StartRenderInput): Promise<void> {
 
 export async function startRender(input: StartRenderInput): Promise<string> {
 	// Fail fast before creating any state: runJob throws unhandled otherwise.
-	kokoroBaseUrl();
+	// Dry-run skips Kokoro entirely: no base URL needed, no audio fetched.
+	if (!isDryRun()) kokoroBaseUrl();
 	for (const job of jobs.values()) {
 		if (job.status === "rendering") {
 			throw new Error("Another render is already running");
