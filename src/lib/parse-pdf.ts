@@ -4,7 +4,6 @@ import type { BookChapter, ParsedBook, TocEntry } from "./book";
 import {
 	cleanTitle,
 	countWords,
-	formatAudioETA,
 	formatFileSizeMB,
 	formatWordCount,
 } from "./book";
@@ -198,7 +197,6 @@ export async function parsePdf(file: File): Promise<ParsedBook> {
 			chapterCount: chapters.length,
 			wordCount,
 			wordCountLabel: formatWordCount(wordCount),
-			estimatedAudio: formatAudioETA(wordCount),
 			coverUrl,
 			coverMime: coverUrl ? "image/jpeg" : undefined,
 			toc,

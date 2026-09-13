@@ -1,11 +1,6 @@
 import JSZip from "jszip";
 import type { BookChapter, ParsedBook } from "./book";
-import {
-	countWords,
-	formatAudioETA,
-	formatFileSizeMB,
-	formatWordCount,
-} from "./book";
+import { countWords, formatFileSizeMB, formatWordCount } from "./book";
 import { findCoverItem, guessImageMime } from "./epub-cover";
 import { loadPackage } from "./epub-manifest";
 import { extractHtmlText } from "./epub-text";
@@ -103,7 +98,6 @@ export async function parseEpub(file: File): Promise<ParsedBook> {
 		chapterCount: chapters.length,
 		wordCount,
 		wordCountLabel: formatWordCount(wordCount),
-		estimatedAudio: formatAudioETA(wordCount),
 		coverUrl,
 		coverMime,
 		toc,

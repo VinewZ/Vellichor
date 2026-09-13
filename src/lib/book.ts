@@ -26,7 +26,6 @@ export interface ParsedBook {
 	chapterCount: number;
 	wordCount: number;
 	wordCountLabel: string;
-	estimatedAudio: string;
 	coverUrl?: string;
 	coverMime?: string;
 	toc: TocEntry[];
@@ -79,11 +78,13 @@ export function formatWordCount(words: number): string {
 	return words.toString();
 }
 
-export const KOKORO_BASE_WPM = 710;
+// Measured Kokoro TTS output rate for Portuguese (~181 wpm pilot chapter,
+// ~183 wpm full-book actuals). Deliberately an observation, not a spec value.
+export const MEASURED_TTS_WPM = 180;
 
 export function formatAudioETA(
 	words: number,
-	wpm: number = KOKORO_BASE_WPM,
+	wpm: number = MEASURED_TTS_WPM,
 	speed = 1,
 ): string {
 	const safeSpeed = Number.isFinite(speed) && speed > 0 ? speed : 1;
