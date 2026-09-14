@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  # Manual backstop: Actions tab → Run workflow (rebuild any release).
+  workflow_dispatch:
 
 jobs:
   build-and-push:
