@@ -1,7 +1,7 @@
 # Vellichor + Kokoro (CUDA). Needs an NVIDIA runtime.
 services:
   vellichor:
-    image: vinewz/vellichor:latest
+    image: ${VELLICHOR_IMAGE:-vinewz/vellichor:latest}
     environment:
       # Same-compose DNS; set only for an external Kokoro.
       KOKORO_BASE_URL: ${KOKORO_BASE_URL:-http://kokoro:8880}
